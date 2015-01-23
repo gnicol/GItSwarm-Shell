@@ -14,31 +14,7 @@ if !GitlabAccess.new(repo_path, key_id, refs).exec || !GitlabCustomHook.new.pre_
   exit 1
 end
 
-p "==[ Its on! ]============================================================";
-
-# if we have a 'mirror' remote, push to it first and reject everything if its unhappy
-Dir.chdir(repo_path) do
-  # no configured mirror means nutin to do; exit happy!
-  exit 1 unless system('git config --get remote.mirror.url')
-
-  # we have a mirror; figure out the updated refs so we can trial push
-  pushRefs = []
-  refs.split("\n").each do |refline|
-    src, tgt, ref = refline.strip.split
-    pushRefs.push(tgt + ":" + ref)
-  end
-
-  # push the ref updates to the remote mirror and fail out if they are unhappy
-  exit 1 unless system('git', 'push', 'mirror', *pushRefs);
-end
-
-require 'tmpdir'
-Dir.mktmpdir do |temp|
-  Dir.chdir(temp) do
-    mirror = `git config --get remote.mirror.url`
-    mirror.gsub!(/\/([^\/]*$)/, '/@wait@\1')
-    system('git', 'clone', mirror)
-  end
-end
-
-exit 1
+# @todo try to move this code into a more central location. ideally only modify
+#       one file to get in our ssh pull mirroring logic and this push logic
+require_relative '../perforce_swarm/mirror'
+exit 1 unless PerforceSwarm::Mirror.push(refs, repo_path)
