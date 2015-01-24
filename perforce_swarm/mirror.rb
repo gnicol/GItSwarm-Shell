@@ -50,7 +50,7 @@ module PerforceSwarm
       push_refs = []
       refs.split("\n").each do |refline|
         _src, tgt, ref = refline.strip.split
-        refspec = (if tgt.match(/^00*$/) then '' else tgt end) + ':' + ref
+        refspec = (tgt.match(/^00*$/) ? '' : tgt) + ':' + ref
         push_refs.push(refspec)
       end
 
@@ -86,9 +86,7 @@ module PerforceSwarm
       # if we do have a remote mirror, fetch from the mirror
       if status.zero? && !mirror.empty?
         _output, status = popen(%w(git fetch mirror -- refs/*:refs/*), repo_path)
-        unless status.zero?
-          raise RemoteMirrorError
-        end
+        fail RemoteMirrorError unless status.zero?
       end
     end
   end
