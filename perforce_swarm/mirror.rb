@@ -17,6 +17,7 @@ module PerforceSwarm
         stdin.close
 
         # read each stream from a new thread
+        # @todo; swap to a plain loop and use IO.select to verify our gets won't block
         { out: stdout, err: stderr }.each do |key, stream|
           Thread.new do
             until (line = stream.gets).nil?
@@ -50,7 +51,7 @@ module PerforceSwarm
       push_refs = []
       refs.split("\n").each do |refline|
         _src, tgt, ref = refline.strip.split
-        refspec = (tgt.match(/^00*$/) ? '' : tgt) + ':' + ref
+        refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
         push_refs.push(refspec)
       end
 
@@ -78,6 +79,7 @@ module PerforceSwarm
     end
 
     # fetch from the remote mirror (if there is one)
+    # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
     def self.fetch(repo_path)
       # Determine if we have a remote mirror
       mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
