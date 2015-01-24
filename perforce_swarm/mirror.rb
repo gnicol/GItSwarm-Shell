@@ -1,5 +1,3 @@
-# @todo; we need to swap to something like popen3 to gracefully get the command output
-# @todo; we need to strip the leading 'remote: ' from the mirror output as it doubles up
 module PerforceSwarm
   class Mirror
     def self.popen(cmd, path = nil, stream_output = nil)
