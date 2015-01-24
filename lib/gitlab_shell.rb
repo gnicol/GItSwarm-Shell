@@ -1,6 +1,7 @@
 require 'shellwords'
 
 require_relative 'gitlab_net'
+require_relative '../perforce_swarm/mirror'
 
 class GitlabShell
   class DisallowedCommandError < StandardError; end
@@ -38,6 +39,10 @@ class GitlabShell
     message = "gitlab-shell: Attempt to execute disallowed command <#{@origin_cmd}> by #{log_username}."
     $logger.warn message
     puts 'Not allowed command'
+  rescue PerforceSwarm::Mirror::RemoteMirrorError => ex
+    message = "gitlab-shell: updating mirror failed <#{@origin_cmd}> by #{log_username}."
+    $logger.warn message
+    puts 'Updating mirror failed'
   end
 
   protected
@@ -55,6 +60,12 @@ class GitlabShell
 
   def process_cmd
     repo_full_path = File.join(repos_path, repo_name)
+
+    # @todo; try to move this code into a more central location
+    if @git_cmd == 'git-upload-pack'
+      PerforceSwarm::Mirror.fetch(repo_full_path)
+    end
+
     $logger.info "gitlab-shell: executing git command <#{@git_cmd} #{repo_full_path}> for #{log_username}."
     exec_cmd(@git_cmd, repo_full_path)
   end
