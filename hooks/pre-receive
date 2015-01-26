@@ -17,4 +17,8 @@ end
 # @todo try to move this code into a more central location. ideally only modify
 #       one file to get in our ssh pull mirroring logic and this push logic
 require_relative '../perforce_swarm/mirror'
-exit 1 unless PerforceSwarm::Mirror.push(refs, repo_path)
+begin
+  PerforceSwarm::Mirror.push(refs, repo_path)
+rescue PerforceSwarm::Mirror::Exception
+  exit 1
+end

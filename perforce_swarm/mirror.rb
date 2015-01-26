@@ -43,7 +43,7 @@ module PerforceSwarm
       # no configured mirror means nutin to do; exit happy!
       mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
       mirror.strip!
-      return true unless status.zero? && !mirror.empty?
+      return unless status.zero? && !mirror.empty?
 
       # we have a mirror; figure out the updated refs so we can trial push to the mirror
       # @todo; from the docs tags may need a leading + to go through this way; test and confirm
@@ -56,11 +56,11 @@ module PerforceSwarm
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       push_output, status = popen(['git', 'push', 'mirror', '--', *push_refs], repo_path, true)
-      return false unless status.zero?
+      fail PerforceSwarm::Mirror::Exception, push_output unless status.zero?
 
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^remote: Commencing push (\d+) processing.../, 1]
-      return true  unless push_id
+      return unless push_id
 
       # git-fusion returns from the push early, we want to delay till its all the way into p4d
       # we swap to a temp dir (to ensure we don't get errors for being already in a git repo)
@@ -77,8 +77,6 @@ module PerforceSwarm
         # @todo; we may not be talking to git-fusion; if there is really a repo called @wait@Foo can we avoid cloning?
         # @todo; the wait may time out and require retries, we should deal with that
       end
-
-      true
     end
 
     # fetch from the remote mirror (if there is one)
