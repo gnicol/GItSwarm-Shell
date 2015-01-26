@@ -1,5 +1,8 @@
 module PerforceSwarm
   class Mirror
+    class Exception < ::Exception
+    end
+
     def self.popen(cmd, path = nil, stream_output = nil)
       unless cmd.is_a?(Array)
         fail 'System commands must be given as an array of strings'
@@ -81,15 +84,14 @@ module PerforceSwarm
     # fetch from the remote mirror (if there is one)
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
     def self.fetch(repo_path)
-      # Determine if we have a remote mirror
+      # see if we have a mirror remote, if not nothing to do
       mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
       mirror.strip!
+      return unless status.zero? && !mirror.empty?
 
-      # if we do have a remote mirror, fetch from the mirror
-      if status.zero? && !mirror.empty?
-        _output, status = popen(%w(git fetch mirror -- refs/*:refs/*), repo_path)
-        fail RemoteMirrorError unless status.zero?
-      end
+      # fetch from the mirror, if that fails return the details
+      output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+      fail PerforceSwarm::Mirror::Exception, output unless status.zero?
     end
   end
 end
