@@ -52,8 +52,12 @@ module PerforceSwarm
       end
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
-      _output, status = popen(['git', 'push', 'mirror', '--', *push_refs], repo_path, true)
+      push_output, status = popen(['git', 'push', 'mirror', '--', *push_refs], repo_path, true)
       return false unless status.zero?
+
+      # try to extract the push id. if we don't have one we're done
+      push_id = push_output[/^remote: Commencing push (\d+) processing.../, 1]
+      return true  unless push_id
 
       # git-fusion returns from the push early, we want to delay till its all the way into p4d
       # we swap to a temp dir (to ensure we don't get errors for being already in a git repo)
