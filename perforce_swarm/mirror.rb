@@ -5,35 +5,31 @@ module PerforceSwarm
         fail 'System commands must be given as an array of strings'
       end
 
-      path ||= Dir.pwd
-      vars = { 'PWD' => path }
+      path  ||= Dir.pwd
+      vars    = { 'PWD' => path }
       options = { chdir: path }
 
       FileUtils.mkdir_p(path) unless File.directory?(path)
 
-      @cmd_output = ''
-      @cmd_status = 0
-      Open3.popen3(vars, *cmd, options) do |stdin, stdout, stderr, wait_thr|
+      cmd_output = ''
+      cmd_status = 0
+      Open3.popen2e(vars, *cmd, options) do |stdin, stdout_and_stderr, wait_thr|
+        # some apps won't fully start till stdin is closed up; we don't use it so close it
         stdin.close
 
-        # read each stream from a new thread
-        # @todo; swap to a plain loop and use IO.select to verify our gets won't block
-        { out: stdout, err: stderr }.each do |key, stream|
-          Thread.new do
-            until (line = stream.gets).nil?
-              @cmd_output << line
+        # read a line at a time from stdout/stderr and capture/report it as needed
+        until (line = stdout_and_stderr.gets).nil?
+          cmd_output << line
 
-              line.gsub!(/remote: /, '')
-              puts line if stream_output
-              yield line, key if block_given?
-            end
-          end
+          line.gsub!(/remote: /, '')
+          puts line  if stream_output
+          yield line if block_given?
         end
 
-        @cmd_status = wait_thr.value.exitstatus
+        cmd_status = wait_thr.value.exitstatus
       end
 
-      [@cmd_output, @cmd_status]
+      [cmd_output, cmd_status]
     end
 
     # push to the remote mirror (if there is one)
