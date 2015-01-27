@@ -1,3 +1,4 @@
+# @todo; for push and fetch perhaps flush? the output is just coming in one whallop as it is
 module PerforceSwarm
   class Mirror
     class Exception < ::Exception
@@ -69,7 +70,7 @@ module PerforceSwarm
       Dir.mktmpdir do |temp|
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
-        wait = mirror.gsub(%r{/([^/]*/?$)}, '/@wait@\1')
+        wait = mirror.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
           output, _ = popen(['git', 'clone', '--', wait], temp) do |line|
@@ -78,7 +79,8 @@ module PerforceSwarm
 
           # we're done looping if it looks like the push is complete
           break if output =~ /^remote: No active push in progress/
-          break if output =~ /remote: Active push operation completed/
+          break if output =~ /^remote: Active push operation completed/
+          break if output =~ /^remote: Push \d+ completed/
 
           # blow up if it looks like the attempt didn't at least try to wait
           fail PerforceSwarm::Mirror::Exception, output unless output =~ /Waiting for current push.../
@@ -91,7 +93,6 @@ module PerforceSwarm
         end
         fail PerforceSwarm::Mirror::Exception, output unless output =~ /Push \d+ completed successfully/
 
-        # @todo; we need to include the push id @wait@REPO@123 so we only wait for the correct push
         # @todo; drop the extra @status once @wait@REPO@123 indicates success/failure
       end
     end
