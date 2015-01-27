@@ -67,15 +67,37 @@ module PerforceSwarm
       # and we clone the @wait@RepoName to delay till its done
       require 'tmpdir'
       Dir.mktmpdir do |temp|
+        # we wait until the push is complete. out of concern the http connection to the mirror may
+        # time out we keep retrying the wait until we see success or that the operation is done
         wait = mirror.gsub(%r{/([^/]*/?$)}, '/@wait@\1')
-        popen(['git', 'clone', '--', wait], temp) do |line|
-          puts line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
+        loop do
+          # do the wait and echo any output not related to the start/end of the clone attempt
+          output, _ = popen(['git', 'clone', '--', wait], temp) do |line|
+            puts line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
+          end
+
+          # we're done looping if it looks like the push is complete
+          break if output =~ /^remote: No active push in progress/
+          break if output =~ /remote: Active push operation completed/
+
+          # blow up if it looks like the attempt didn't at least try to wait
+          fail PerforceSwarm::Mirror::Exception, output unless output =~ /Waiting for current push.../
+        end
+
+        # follow up with a status call to detect errors
+        status = mirror.gsub(%r{/([^/]*/?$)}, '/@status@\1')
+        output = ''
+        popen(['git', 'clone', '--', status], temp) do |line|
+          output << line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
+          puts line if line =~ /Push \d+ completed successfully/
+        end
+        unless output =~ /Push \d+ completed successfully/
+          puts output
+          fail PerforceSwarm::Mirror::Exception, output
         end
 
         # @todo; we need to include the push id @wait@REPO@123 so we only wait for the correct push
-        # @todo; the push may fail going into perforce; we need to scrape success/failure from the result message
-        # @todo; we may not be talking to git-fusion; if there is really a repo called @wait@Foo can we avoid cloning?
-        # @todo; the wait may time out and require retries, we should deal with that
+        # @todo; drop the extra @status once @wait@REPO@123 indicates success/failure
       end
     end
 
@@ -90,6 +112,9 @@ module PerforceSwarm
       # fetch from the mirror, if that fails return the details
       output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
       fail PerforceSwarm::Mirror::Exception, output unless status.zero?
+
+      # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
+      # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
     end
   end
 end
