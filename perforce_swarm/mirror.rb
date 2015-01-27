@@ -86,15 +86,10 @@ module PerforceSwarm
 
         # follow up with a status call to detect errors
         status = mirror.gsub(%r{/([^/]*/?$)}, '/@status@\1')
-        output = ''
-        popen(['git', 'clone', '--', status], temp) do |line|
-          output << line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
-          puts line if line =~ /Push \d+ completed successfully/
+        output, _ = popen(['git', 'clone', '--', status], temp) do |line|
+          puts line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
         end
-        unless output =~ /Push \d+ completed successfully/
-          puts output
-          fail PerforceSwarm::Mirror::Exception, output
-        end
+        fail PerforceSwarm::Mirror::Exception, output unless output =~ /Push \d+ completed successfully/
 
         # @todo; we need to include the push id @wait@REPO@123 so we only wait for the correct push
         # @todo; drop the extra @status once @wait@REPO@123 indicates success/failure
