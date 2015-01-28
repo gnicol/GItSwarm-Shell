@@ -39,7 +39,7 @@ class GitlabShell
     message = "gitlab-shell: Attempt to execute disallowed command <#{@origin_cmd}> by #{log_username}."
     $logger.warn message
     puts 'Not allowed command'
-  rescue PerforceSwarm::Mirror::RemoteMirrorError => ex
+  rescue PerforceSwarm::Mirror::Exception => ex
     message = "gitlab-shell: updating mirror failed <#{@origin_cmd}> by #{log_username}."
     $logger.warn message
     puts 'Updating mirror failed'
