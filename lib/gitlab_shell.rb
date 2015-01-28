@@ -62,9 +62,7 @@ class GitlabShell
     repo_full_path = File.join(repos_path, repo_name)
 
     # @todo; try to move this code into a more central location
-    if @git_cmd == 'git-upload-pack'
-      PerforceSwarm::Mirror.fetch(repo_full_path)
-    end
+    PerforceSwarm::Mirror.fetch(repo_full_path)
 
     $logger.info "gitlab-shell: executing git command <#{@git_cmd} #{repo_full_path}> for #{log_username}."
     exec_cmd(@git_cmd, repo_full_path)
