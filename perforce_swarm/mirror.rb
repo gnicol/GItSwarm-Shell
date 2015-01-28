@@ -1,3 +1,6 @@
+require 'open3'
+require 'tmpdir'
+
 # @todo; for push and fetch perhaps flush? the output is just coming in one whallop as it is
 module PerforceSwarm
   class Mirror
@@ -66,7 +69,6 @@ module PerforceSwarm
       # git-fusion returns from the push early, we want to delay till its all the way into p4d
       # we swap to a temp dir (to ensure we don't get errors for being already in a git repo)
       # and we clone the @wait@RepoName to delay till its done
-      require 'tmpdir'
       Dir.mktmpdir do |temp|
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
