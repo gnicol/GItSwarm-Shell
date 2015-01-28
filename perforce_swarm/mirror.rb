@@ -2,6 +2,7 @@ require 'open3'
 require 'tmpdir'
 
 # @todo; for push and fetch perhaps flush? the output is just coming in one whallop as it is
+# @todo; if we could detect that a pull hadn't run recently we could trigger one in push to protect against missed spots
 module PerforceSwarm
   class Mirror
     class Exception < ::Exception
@@ -79,13 +80,17 @@ module PerforceSwarm
             puts line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
           end
 
+          # if we have a success message we are on a newer git-fusion and don't need to hit @status
+          return if output =~ /^remote: Push \d+ completed successfully/
+
           # we're done looping if it looks like the push is complete
+          # these messages are only expected on pre 993673 git-fusion's and can likely be dropped
           break if output =~ /^remote: No active push in progress/
           break if output =~ /^remote: Active push operation completed/
           break if output =~ /^remote: Push \d+ completed/
 
           # blow up if it looks like the attempt didn't at least try to wait
-          fail PerforceSwarm::Mirror::Exception, output unless output =~ /Waiting for current push.../
+          fail PerforceSwarm::Mirror::Exception, output unless output =~ /Waiting for push \d+.../
         end
 
         # follow up with a status call to detect errors
@@ -93,9 +98,7 @@ module PerforceSwarm
         output, _ = popen(['git', 'clone', '--', status], temp) do |line|
           puts line unless line =~ /^Cloning into/ || line =~ /^fatal: repository .* not found$/
         end
-        fail PerforceSwarm::Mirror::Exception, output unless output =~ /Push \d+ completed successfully/
-
-        # @todo; drop the extra @status once @wait@REPO@123 indicates success/failure
+        fail PerforceSwarm::Mirror::Exception, output unless output =~ /^remote: Push \d+ completed successfully/
       end
     end
 
