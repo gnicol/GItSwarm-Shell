@@ -10,15 +10,9 @@ repo_path = Dir.pwd
 require_relative '../lib/gitlab_custom_hook'
 require_relative '../lib/gitlab_access'
 
-if !GitlabAccess.new(repo_path, key_id, refs).exec || !GitlabCustomHook.new.pre_receive(refs, repo_path)
-  exit 1
-end
-
-# @todo try to move this code into a more central location. ideally only modify
-#       one file to get in our ssh pull mirroring logic and this push logic
-require_relative '../perforce_swarm/mirror'
-begin
-  PerforceSwarm::Mirror.push(refs, repo_path)
-rescue PerforceSwarm::Mirror::Exception
+if GitlabAccess.new(repo_path, key_id, refs).exec &&
+    GitlabCustomHook.new.pre_receive(refs, repo_path)
+  exit 0
+else
   exit 1
 end
