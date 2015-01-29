@@ -31,7 +31,7 @@ module PerforceSwarm
         stdout_and_stderr.each_char do |char|
           cmd_output << char
 
-          # if this is just part of an \r\n sequence record it and continue
+          # if this is just part of an \r\n sequence remember it and continue
           if char == "\n" && last_char == "\r"
             last_char = char
             next
