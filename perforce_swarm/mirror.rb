@@ -27,20 +27,16 @@ module PerforceSwarm
 
         # read a line at a time from stdout/stderr and capture/report it as needed
         # this is somewhat laborious as git-fusion returns line endings of both 0x0a and 0x0d :(
-        last_char, line = nil, nil
+        line = ''
         stdout_and_stderr.each_char do |char|
           cmd_output << char
 
           # if this is just part of an \r\n sequence remember it and continue
-          if char == "\n" && last_char == "\r"
-            last_char = char
-            next
-          end
+          next if char == "\n" && cmd_output[-2] == "\r"
 
           # if we're not on a newline character just capture into line and continue
           if char != "\n" && char != "\r"
-            (line ||= '') << char
-            last_char = char
+            line << char
             next
           end
 
@@ -48,18 +44,13 @@ module PerforceSwarm
           line.gsub!(/^remote: /, '')
           puts line  if !line.empty? && stream_output
           yield line if !line.empty? && block_given?
-
-          # as we've handled that one, clear the line buffer and record the last char
-          line = nil
-          last_char = char
+          line = ''
         end
 
         # if there was data left in line print/yield as needed if the line has content
-        unless line.nil?
-          line.gsub!(/^remote: /, '')
-          puts line  if !line.empty? && stream_output
-          yield line if !line.empty? && block_given?
-        end
+        line.gsub!(/^remote: /, '')
+        puts line  if !line.empty? && stream_output
+        yield line if !line.empty? && block_given?
 
         cmd_status = wait_thr.value.exitstatus
       end
