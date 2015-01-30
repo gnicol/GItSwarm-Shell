@@ -80,7 +80,7 @@ module PerforceSwarm
       # we have a mirror; figure out the updated refs so we can trial push to the mirror
       # @todo; from the docs tags may need a leading + to go through this way; test and confirm
       push_refs = []
-      refs.split("\n").each do |refline|
+      refs.split(/\r\n|\r|\n/).each do |refline|
         _src, tgt, ref = refline.strip.split
         refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
         push_refs.push(refspec)

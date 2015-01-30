@@ -1,4 +1,6 @@
 require_relative 'mirror'
+require_relative '../lib/gitlab_custom_hook'
+require_relative '../lib/gitlab_shell'
 
 module PerforceSwarm
   # If everything else looks good, we want to do a mirror
