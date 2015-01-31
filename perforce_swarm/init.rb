@@ -9,7 +9,14 @@ module PerforceSwarm
     def pre_receive(changes, repo_path)
       return false unless super
 
-      PerforceSwarm::Mirror.push(changes, repo_path)
+      # Transform the changes into an array of pushable ref updates
+      refs = []
+      changes.split(/\r\n|\r|\n/).each do |refline|
+        _src, tgt, ref = refline.strip.split
+        refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
+        refs.push(refspec)
+      end
+      PerforceSwarm::Mirror.push(refs, repo_path)
       true
     rescue PerforceSwarm::Mirror::Exception
       return false
