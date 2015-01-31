@@ -23,5 +23,8 @@ Style/ClassAndModuleChildren:
 Style/Documentation:
   Enabled: false
 
+Style/GlobalVars:
+  AllowedVariables: [$logger]
+
 Style/GuardClause:
   Enabled: false
