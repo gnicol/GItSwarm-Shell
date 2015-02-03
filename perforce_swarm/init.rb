@@ -1,6 +1,7 @@
 require_relative 'mirror'
 require_relative '../lib/gitlab_custom_hook'
 require_relative '../lib/gitlab_shell'
+require_relative '../lib/gitlab_projects'
 
 module PerforceSwarm
   # If everything else looks good, we want to do a mirror
@@ -32,7 +33,25 @@ module PerforceSwarm
       PerforceSwarm::Mirror.fetch(repo_full_path)
       super
     rescue PerforceSwarm::Mirror::Exception => e
-      raise GitlabShell::DisallowedCommandError, e.message
+      raise ::GitlabShell::DisallowedCommandError, e.message
+    end
+  end
+
+  module GitlabProjects
+    def create_branch
+      branch_name = ARGV[0]
+      ref         = ARGV[1] || 'HEAD'
+      PerforceSwarm::Mirror.push(["#{ref}:#{branch_name}"], full_path)
+      super
+    rescue PerforceSwarm::Mirror::Exception
+      return false
+    end
+
+    def rm_branch
+      PerforceSwarm::Mirror.push([":#{ARGV.first}"], full_path)
+      super
+    rescue PerforceSwarm::Mirror::Exception
+      return false
     end
   end
 end
@@ -43,4 +62,8 @@ end
 
 class GitlabShell
   prepend PerforceSwarm::GitlabShell
+end
+
+class GitlabProjects
+  prepend PerforceSwarm::GitlabProjects
 end
