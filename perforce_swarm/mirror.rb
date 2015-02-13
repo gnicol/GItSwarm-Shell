@@ -62,6 +62,7 @@ module PerforceSwarm
     # push to the remote mirror (if there is one)
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
+    # @todo; when we have push and pull locks, our call to pull will have to specify an ignore push lock
     def self.push(refs, repo_path)
       # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
 
@@ -119,15 +120,60 @@ module PerforceSwarm
       mirror.strip!
       return unless status.zero? && !mirror.empty?
 
-      # fetch from the mirror, if that fails return the details
-      output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
-      unless status.zero?
-        $logger.error "Fetch from mirror failed for: #{repo_path}\n#{output}"
-        fail Exception, output
+      status_file = File.join(repo_path, 'mirror_fetch_status')
+
+      # Lock during mirror fetch. Lock is automatically released after this
+      # block is finished, but we manually release the lock for performance.
+      File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_lock|
+        # Try and take the lock, but don't yet block if it's already taken
+        unless fetch_lock.flock(File::LOCK_NB | File::LOCK_EX)
+          # We didn't get the lock, we are going to try and and block until we get it.
+          # This time our lock is shared (a read lock), so if a couple of these queued
+          # up against the exclusive lock, they could all start reading now
+          fetch_lock.flock(File::LOCK_SH)
+
+          # Check for errors from the exclusive lock fetch, and return the error message
+          fetch_status = File.read(status_file)
+          if fetch_status.size > 0
+            message = PerforceSwarm::Mirror.output_fetch_error(mirror, repo_path, fetch_status)
+            fetch_lock.flock(File::LOCK_UN)
+            fail Exception, message
+          end
+
+          # There weren't errors from the exclusive lock, we will
+          # skip mirror fetching and return to the native fetch
+          fetch_lock.flock(File::LOCK_UN)
+          return
+        end
+
+        # fetch from the mirror, if that fails return the details
+        output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+        unless status.zero?
+          # Write the failure output for the concurrent fetches to report
+          File.write(status_file, output)
+
+          # Output the error message, unlock and fail
+          message = PerforceSwarm::Mirror.output_fetch_error(mirror, repo_path, output)
+          fetch_lock.flock(File::LOCK_UN)
+          fail Exception, message
+        end
+
+        # Clear errors from our status file after a successful pull
+        File.open(status_file, File::CREAT | File::TRUNC) {}
+        fetch_lock.flock(File::LOCK_UN)
       end
 
       # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
       # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
+    end
+
+    def self.output_fetch_error(mirror, repo_path, output)
+      message      = "Fetch from the upstream mirror: #{mirror} failed.\nPlease notify your Administrator.\n#{output}"
+      $logger.error "Fetch from mirror failed for: #{repo_path}\n#{message}"
+      remote_error = "ERR #{message}"
+      packet_size  = remote_error.bytesize + 4
+      puts "#{format('%04x', packet_size)}#{remote_error}"
+      message
     end
   end
 end
