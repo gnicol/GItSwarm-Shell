@@ -17,9 +17,9 @@ module PerforceSwarm
         refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
         refs.push(refspec)
       end
-      PerforceSwarm::Mirror.push(refs, repo_path)
+      Mirror.push(refs, repo_path)
       true
-    rescue PerforceSwarm::Mirror::Exception
+    rescue Mirror::Exception
       return false
     end
   end
@@ -30,10 +30,19 @@ module PerforceSwarm
     def process_cmd
       repo_full_path = File.join(repos_path, repo_name)
 
-      PerforceSwarm::Mirror.fetch(repo_full_path)
+      # push errors are fatal but pull errors are ignorable
+      if @git_cmd == 'git-receive-pack'
+        Mirror.fetch(repo_full_path)
+      else
+        Mirror.safe_fetch(repo_full_path)
+      end
+
       super
-    rescue PerforceSwarm::Mirror::Exception => e
-      raise ::GitlabShell::DisallowedCommandError, e.message
+    rescue Mirror::Exception => e
+      unless @git_cmd == 'git-receive-pack'
+        puts "#{format('%04x', e.message.bytesize + 8)}ERR #{e.message}"
+      end
+      raise Mirror::Exception, e.message
     end
   end
 
@@ -41,16 +50,16 @@ module PerforceSwarm
     def create_branch
       branch_name = ARGV[0]
       ref         = ARGV[1] || 'HEAD'
-      PerforceSwarm::Mirror.push(["#{ref}:#{branch_name}"], full_path)
+      Mirror.push(["#{ref}:#{branch_name}"], full_path)
       super
-    rescue PerforceSwarm::Mirror::Exception
+    rescue Mirror::Exception
       return false
     end
 
     def rm_branch
-      PerforceSwarm::Mirror.push([":#{ARGV.first}"], full_path)
+      Mirror.push([":#{ARGV.first}"], full_path)
       super
-    rescue PerforceSwarm::Mirror::Exception
+    rescue Mirror::Exception
       return false
     end
   end
