@@ -18,20 +18,18 @@ class GitlabShell
     if @origin_cmd
       parse_cmd
 
-      if git_cmds.include?(@git_cmd)
-        ENV['GL_ID'] = @key_id
+      raise DisallowedCommandError unless git_cmds.include?(@git_cmd)
 
-        access = api.check_access(@git_cmd, @repo_name, @key_id, '_any')
+      ENV['GL_ID'] = @key_id
 
-        if access.allowed?
-          process_cmd
-        else
-          message = "gitlab-shell: Access denied for git command <#{@origin_cmd}> by #{log_username}."
-          $logger.warn message
-          puts access.message
-        end
+      access = api.check_access(@git_cmd, @repo_name, @key_id, '_any')
+
+      if access.allowed?
+        process_cmd
       else
-        raise DisallowedCommandError
+        message = "gitlab-shell: Access denied for git command <#{@origin_cmd}> by #{log_username}."
+        $logger.warn message
+        puts access.message
       end
     else
       puts "Welcome to GitLab, #{username}!"
@@ -50,8 +48,10 @@ class GitlabShell
     args = Shellwords.shellwords(@origin_cmd)
     @git_cmd = args.first
 
-    if @git_cmd == 'git-annex-shell' && @config.git_annex_enabled?
-      @repo_name = escape_path(args[2].gsub("\/~\/", ''))
+    if @git_cmd == 'git-annex-shell'
+      raise DisallowedCommandError unless @config.git_annex_enabled?
+
+      @repo_name = escape_path(args[2].sub(/\A\/~\//, ''))
 
       # Make sure repository has git-annex enabled
       init_git_annex(@repo_name)
@@ -68,7 +68,9 @@ class GitlabShell
   def process_cmd
     repo_full_path = File.join(repos_path, repo_name)
 
-    if @git_cmd == 'git-annex-shell' && @config.git_annex_enabled?
+    if @git_cmd == 'git-annex-shell'
+      raise DisallowedCommandError unless @config.git_annex_enabled?
+
       args = Shellwords.shellwords(@origin_cmd)
       parsed_args =
         args.map do |arg|

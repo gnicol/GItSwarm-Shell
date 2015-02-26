@@ -16,16 +16,20 @@ class GitlabPostReceive
     # get value from it
     ENV['GL_ID'] = nil
 
-    update_redis
+    result = update_redis
 
     begin
       broadcast_message = GitlabNet.new.broadcast_message
-      if broadcast_message
+
+      if broadcast_message.has_key?("message")
         puts
         print_broadcast_message(broadcast_message["message"])
       end
     rescue GitlabNet::ApiUnreachableError
+      nil
     end
+
+    result
   end
 
   protected

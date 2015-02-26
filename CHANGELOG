@@ -1,3 +1,12 @@
+v2.5.3
+  - Improve git-annex integration
+
+v2.5.2
+  - Safer line sub for git-annex command
+
+v2.5.1
+  - Expect broadcast message to return empty JSON if no message now
+
 v2.5.0
   - Support git-annex tool (disabled by default)
   - Add rubocop (Ruby static code analyzer) for development
