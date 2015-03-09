@@ -32,9 +32,9 @@ module PerforceSwarm
 
       # push errors are fatal but pull errors are ignorable
       if @git_cmd == 'git-receive-pack'
-        Mirror.fetch(repo_full_path)
+        Mirror.fetch!(repo_full_path)
       else
-        Mirror.safe_fetch(repo_full_path)
+        Mirror.fetch(repo_full_path)
       end
 
       super

@@ -105,22 +105,23 @@ module PerforceSwarm
           fail Exception, output unless output =~ /Waiting for push \d+.../
         end
       end
-    rescue PerforceSwarm::Mirror::Exception => e
+    rescue Mirror::Exception => e
       $logger.error "Push to mirror failed for: #{repo_path}\n#{refs * "\n"}\n#{e.message}"
       raise e
     end
 
-    def self.fetch(repo_path)
-      safe_fetch(repo_path)
-      error = last_fetch_error(repo_path)
-      fail Exception, error if error
+    # perform safe fetch but then throws an execption if errors occured
+    def self.fetch!(repo_path)
+      fail Exception, last_fetch_error(repo_path) unless fetch(repo_path)
     end
 
-    # fetch from the remote mirror (if there is one)
+    # fetch from the remote mirror (if there is one) and return success/failure
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
-    def self.safe_fetch(repo_path)
+    # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
+    # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
+    def self.fetch(repo_path)
       # see if we have a mirror remote, if not nothing to do
-      return unless mirror_url(repo_path)
+      return true unless (mirror = mirror_url(repo_path))
 
       # Lock during mirror fetch. Lock is automatically released after this
       # block is finished, but we manually release the lock for performance.
@@ -131,7 +132,7 @@ module PerforceSwarm
             # Looks like someone else is already doing a pull
             # We will wait for them to finish and then use their result
             lock_handle.flock(File::LOCK_SH)
-            return
+            return !last_fetch_error(repo_path)
           end
 
           # fetch from the mirror, if that fails then capute failure details
@@ -140,27 +141,26 @@ module PerforceSwarm
           if status.zero?
             # Everything went well, clear the error file if present
             FileUtils.safe_unlink(error_file)
+            return true
           else
             # Something went wrong, record the details
-            $logger.error "Fetch from mirror failed for: #{repo_path}\n#{output}"
+            $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{output}"
             File.write(error_file, output)
+            return false
           end
         ensure
           lock_handle.flock(File::LOCK_UN)
           lock_handle.close
         end
       end
-
-      # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
-      # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
     end
 
     def self.last_fetch_error(repo_path)
       # see if we have a mirror remote, if not nothing to do
-      return unless (mirror = mirror_url(repo_path))
+      return false unless (mirror = mirror_url(repo_path))
 
       error = File.read(File.join(repo_path, 'mirror_fetch.error'))
-      "Fetch from the upstream mirror: #{mirror} failed.\nPlease notify your Administrator.\n#{error}"
+      "Fetch from mirror: #{mirror} failed.\nPlease notify your Administrator.\n#{error}"
     rescue SystemCallError
       return false
     end
