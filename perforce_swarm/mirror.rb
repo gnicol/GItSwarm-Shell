@@ -27,34 +27,35 @@ module PerforceSwarm
         stdin.close
 
         # read a line at a time from stdout/stderr and capture/report it as needed
-        # this is somewhat laborious as git-fusion returns line endings of both 0x0a and 0x0d :(
+        # be aware git-fusion uses 0x0D, \r to stack progress output and 0x0A, \n to really line break between hunks.
         line = ''
         stdout_and_stderr.each_char do |char|
           cmd_output << char
-
-          # if this is just part of an \r\n sequence remember it and continue
-          next if char == "\n" && cmd_output[-2] == "\r"
+          line       << char
 
           # if we're not on a newline character just capture into line and continue
-          if char != "\n" && char != "\r"
-            line << char
-            next
-          end
+          # note this means the \n in a \r\n sequence gets processed as its own line
+          # we do not however normally expect to encounter \r\n sequences.
+          next unless char == "\n" || char == "\r"
 
           # strip the remote lead-in and print/yield as needed if the line has content
           line.gsub!(/^remote: /, '')
-          puts line  if !line.empty? && stream_output
+          print line if !line.empty? && stream_output
           yield line if !line.empty? && block_given?
           line = ''
         end
 
         # if there was data left in line print/yield as needed if the line has content
         line.gsub!(/^remote: /, '')
-        puts line  if !line.empty? && stream_output
+        print line if !line.empty? && stream_output
         yield line if !line.empty? && block_given?
 
         cmd_status = wait_thr.value.exitstatus
       end
+
+      # for the non-streamed output, normalize line-endings to \n
+      # this makes it much easier to play with them using regex or to log them
+      cmd_output.gsub!(/\r\n\|\r/, "\n")
 
       [cmd_output, cmd_status]
     end
@@ -95,7 +96,7 @@ module PerforceSwarm
           silenced  = false
           output, _ = popen(['git', 'clone', '--', wait], temp) do |line|
             silenced ||= line =~ /^fatal: /
-            puts line unless line =~ /^Cloning into/ || silenced
+            print line unless line =~ /^Cloning into/ || silenced
           end
 
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
