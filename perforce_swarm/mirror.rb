@@ -62,13 +62,12 @@ module PerforceSwarm
     # push to the remote mirror (if there is one)
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
+    # @todo; when we have push and pull locks, our call to pull will have to specify an ignore push lock
     def self.push(refs, repo_path)
       # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
 
       # no configured mirror means nutin to do; exit happy!
-      mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
-      mirror.strip!
-      return unless status.zero? && !mirror.empty?
+      return unless (mirror = mirror_url(repo_path))
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
@@ -106,28 +105,71 @@ module PerforceSwarm
           fail Exception, output unless output =~ /Waiting for push \d+.../
         end
       end
-    rescue PerforceSwarm::Mirror::Exception => e
+    rescue Mirror::Exception => e
       $logger.error "Push to mirror failed for: #{repo_path}\n#{refs * "\n"}\n#{e.message}"
       raise e
     end
 
-    # fetch from the remote mirror (if there is one)
+    # perform safe fetch but then throws an execption if errors occured
+    def self.fetch!(repo_path)
+      fail Exception, last_fetch_error(repo_path) unless fetch(repo_path)
+    end
+
+    # fetch from the remote mirror (if there is one) and return success/failure
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
+    # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
+    # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
     def self.fetch(repo_path)
       # see if we have a mirror remote, if not nothing to do
+      return true unless (mirror = mirror_url(repo_path))
+
+      # Lock during mirror fetch. Lock is automatically released after this
+      # block is finished, but we manually release the lock for performance.
+      File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |lock_handle|
+        begin
+          # Try and take the lock, but don't yet block if it's already taken
+          unless lock_handle.flock(File::LOCK_NB | File::LOCK_EX)
+            # Looks like someone else is already doing a pull
+            # We will wait for them to finish and then use their result
+            lock_handle.flock(File::LOCK_SH)
+            return !last_fetch_error(repo_path)
+          end
+
+          # fetch from the mirror, if that fails then capute failure details
+          output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+          error_file     = File.join(repo_path, 'mirror_fetch.error')
+          if status.zero?
+            # Everything went well, clear the error file if present
+            FileUtils.safe_unlink(error_file)
+            return true
+          else
+            # Something went wrong, record the details
+            $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{output}"
+            File.write(error_file, output)
+            return false
+          end
+        ensure
+          lock_handle.flock(File::LOCK_UN)
+          lock_handle.close
+        end
+      end
+    end
+
+    def self.last_fetch_error(repo_path)
+      # see if we have a mirror remote, if not nothing to do
+      return false unless (mirror = mirror_url(repo_path))
+
+      error = File.read(File.join(repo_path, 'mirror_fetch.error'))
+      "Fetch from mirror: #{mirror} failed.\nPlease notify your Administrator.\n#{error}"
+    rescue SystemCallError
+      return false
+    end
+
+    def self.mirror_url(repo_path)
       mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
       mirror.strip!
-      return unless status.zero? && !mirror.empty?
-
-      # fetch from the mirror, if that fails return the details
-      output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
-      unless status.zero?
-        $logger.error "Fetch from mirror failed for: #{repo_path}\n#{output}"
-        fail Exception, output
-      end
-
-      # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
-      # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
+      return false unless status.zero? && !mirror.empty?
+      mirror
     end
   end
 end
