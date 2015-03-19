@@ -6,7 +6,7 @@ require_relative '../lib/gitlab_init'
 # @todo; if we could detect that a pull hadn't run recently we could trigger one in push to protect against missed spots
 module PerforceSwarm
   class Mirror
-    class Exception < ::Exception
+    class Exception < StandardError
     end
 
     def self.popen(cmd, path = nil, stream_output = nil)
