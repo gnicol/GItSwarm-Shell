@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+require 'socket'
+
+# we'll listen on a unix socket for the command "LOCK\n" from the pre-receive hook
+# if invoked, we'll send back "LOCKED\n" post acquisition
+# we only do this if we were passed a valid repo path
+repo_path = ARGV.length > 0 && File.realpath(ARGV.last)
+if repo_path
+  lock_handle = nil # keeping the handle scoped outside the thread is important!
+  lock_socket = "#{repo_path}/mirror_push-#{Process.pid}.socket"
+  File.unlink(lock_socket) if File.exist?(lock_socket)
+  Thread.abort_on_exception = true
+  thread = Thread.new do
+    server = UNIXServer.new(lock_socket)
+    socket = server.accept
+    nil until socket.gets.chomp == 'LOCK'
+    lock_handle = File.open(repo_path + '/mirror_push.lock', 'w+', 0644)
+    lock_handle.flock(File::LOCK_EX)
+    socket.puts 'LOCKED'
+    socket.flush
+  end
+end
+
+# run the normal git-receive-pack but ensure our lock socket is available for it
+ENV['WRITE_LOCK_SOCKET'] = lock_socket
+Process.wait spawn(ENV, 'git-receive-pack', *ARGV)
+exit_code = $?.to_i
+
+# ensure the thread is shutdown and cleanup our socket
+if repo_path
+  thread.kill
+  File.unlink(lock_socket)
+end
+
+exit exit_code
