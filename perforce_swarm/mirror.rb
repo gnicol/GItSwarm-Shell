@@ -70,6 +70,17 @@ module PerforceSwarm
       # no configured mirror means nutin to do; exit happy!
       return unless (mirror = mirror_url(repo_path))
 
+      # we communicate with our custom git-receive-pack script to take out a write lock around the mirror operation
+      # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
+      # @todo; once we make full use of this we aught to throw if the ENV variable is not present
+      if ENV['WRITE_LOCK_SOCKET']
+        socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
+        socket.puts 'LOCK'
+        socket.flush
+        fail Exception 'Expected LOCKED confirmation' unless socket.gets.chomp == 'LOCKED'
+        socket.close
+      end
+
       # push the ref updates to the remote mirror and fail out if they are unhappy
       push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
       fail Exception, push_output unless status.zero?
