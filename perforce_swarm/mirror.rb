@@ -73,7 +73,7 @@ module PerforceSwarm
 
       # we communicate with our custom git-receive-pack script to take out a write lock around the mirror operation
       # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
-      fail Exception 'Expected WRITE_LOCK_SOCKET to be set in environment' unless ENV['WRITE_LOCK_SOCKET']
+      fail Exception, 'Expected WRITE_LOCK_SOCKET to be set in environment' unless ENV['WRITE_LOCK_SOCKET']
       socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
       socket.puts 'LOCK'
       socket.flush
