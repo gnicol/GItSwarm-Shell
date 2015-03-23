@@ -44,6 +44,13 @@ module PerforceSwarm
       end
       raise Mirror::Exception, e.message
     end
+
+    def exec_cmd(*args)
+      if args[0] == 'git-receive-pack'
+        args[0] = File.join(ROOT_PATH, 'perforce_swarm', 'bin', 'swarm-receive-pack')
+      end
+      super(*args)
+    end
   end
 
   module GitlabProjects
