@@ -1,4 +1,5 @@
 require 'open3'
+require 'socket'
 require 'tmpdir'
 require_relative '../lib/gitlab_init'
 

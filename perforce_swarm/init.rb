@@ -47,7 +47,7 @@ module PerforceSwarm
 
     def exec_cmd(*args)
       if args[0] == 'git-receive-pack'
-        args[0] = File.join(ROOT_PATH, 'perforce_swarm', 'bin', 'swarm-receive-pack').to_s
+        args[0] = File.join(ROOT_PATH, 'perforce_swarm', 'bin', 'swarm-receive-pack')
       end
       super(*args)
     end
