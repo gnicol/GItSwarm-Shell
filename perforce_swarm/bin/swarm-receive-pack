@@ -25,7 +25,8 @@ if repo_path && mirror_url
 end
 
 # run the normal git-receive-pack giving it access to the lock socket
-Process.wait spawn(ENV, 'git-receive-pack', *ARGV)
+# note our abort_on_exception can result in spawn throwing; just eat those exceptions
+Process.wait spawn(ENV, 'git-receive-pack', *ARGV) rescue
 exit_code = $?.to_i
 
 # ensure the thread is shutdown and cleanup our socket
