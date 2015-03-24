@@ -71,18 +71,16 @@ module PerforceSwarm
       # no configured mirror means nutin to do; exit happy!
       return unless (mirror = mirror_url(repo_path))
 
-      # we communicate with our custom git-receive-pack script to take out a write lock around the mirror operation
+      # we communicate with our custom git-receive-pack script to take out a write lock around the push to mirror
       # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
-      fail Exception, 'Expected WRITE_LOCK_SOCKET to be set in environment' unless ENV['WRITE_LOCK_SOCKET']
-      socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
-      socket.puts 'LOCK'
-      socket.flush
-      fail Exception 'Expected LOCKED confirmation' unless socket.gets.chomp == 'LOCKED'
-      socket.close
+      lock_response = lock_socket('LOCK')
+      fail Exception "Expected LOCKED confirmation but received: #{lock}" unless lock_response == 'LOCKED'
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
-      fail Exception, push_output unless status.zero?
+      unless status.zero?
+        fail Exception, push_output
+      end
 
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^(?:remote: )?Commencing push (\d+) processing.../, 1]
@@ -116,12 +114,20 @@ module PerforceSwarm
           fail Exception, output unless output =~ /Waiting for push \d+.../
         end
       end
-    rescue Mirror::Exception => e
+    rescue StandardError => e
       $logger.error "Push to mirror failed for: #{repo_path}\n#{refs * "\n"}\n#{e.message}"
+
+      # don't hold the lock while we communicate our displeasure over the network to the client
+      begin
+        lock_socket('UNLOCK') if lock_response == 'LOCKED'
+      rescue
+        # the unlock is a courtesy, quash any exceptions
+      end
+
       raise e
     end
 
-    # perform safe fetch but then throws an execption if errors occured
+    # perform safe fetch but then throws an exception if errors occurred
     def self.fetch!(repo_path)
       fail Exception, last_fetch_error(repo_path) unless fetch(repo_path)
     end
@@ -181,6 +187,18 @@ module PerforceSwarm
       mirror.strip!
       return false unless status.zero? && !mirror.empty?
       mirror
+    end
+
+    # used to send the command LOCK or UNLOCK to the write lock socket
+    # only usable on mirrored repos during a push operation
+    def self.lock_socket(command)
+      fail Exception, 'Expected WRITE_LOCK_SOCKET to be set in environment' unless ENV['WRITE_LOCK_SOCKET']
+      socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
+      socket.puts command.strip
+      socket.flush
+      response = socket.gets.to_s.strip
+      socket.close
+      response
     end
   end
 end

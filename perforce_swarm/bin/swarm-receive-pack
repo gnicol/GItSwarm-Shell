@@ -1,9 +1,10 @@
 #!/usr/bin/env ruby
 
 require_relative '../init'
+require 'timeout'
 
-# we'll listen on a unix socket for the command "LOCK\n" from the pre-receive hook
-# if invoked, we'll send back "LOCKED\n" post acquisition
+# we'll listen on a unix socket for the commands "LOCK\n" or "UNLOCK\n" from the pre-receive/post-receive hooks
+# if invoked, we'll send back "LOCKED\n" post acquisition or "UNLOCKED\n" post release
 # we only do this if we were passed the path to a valid repo with mirroring enabled
 repo_path  = ARGV.length > 0 && File.realpath(ARGV.last) rescue false
 mirror_url = repo_path && PerforceSwarm::Mirror.mirror_url(repo_path)
@@ -12,27 +13,49 @@ if repo_path && mirror_url
   lock_socket = "#{repo_path}/mirror_push-#{Process.pid}.socket"
   ENV['WRITE_LOCK_SOCKET'] = lock_socket
   File.unlink(lock_socket) if File.exist?(lock_socket)
-  Thread.abort_on_exception = true
   thread = Thread.new do
-    server = UNIXServer.new(lock_socket)
-    socket = server.accept
-    nil until socket.gets.chomp == 'LOCK'
-    lock_handle = File.open("#{repo_path}/mirror_push.lock", 'w+', 0644)
-    lock_handle.flock(File::LOCK_EX)
-    socket.puts 'LOCKED'
-    socket.flush
+    Socket.unix_server_loop(lock_socket) do |socket|
+      begin
+        # just encase an evil do-er connects; only wait 5 seconds for a command don't block forever
+        command = nil
+        Timeout.timeout 5 do
+          command = socket.gets.strip
+        end
+
+        # ignore unknown commands
+        if command != 'LOCK' && command != 'UNLOCK'
+          socket.puts 'UNKNOWN'
+          return
+        end
+
+        lock_handle = File.open("#{repo_path}/mirror_push.lock", 'w+', 0644) unless lock_handle
+        lock_handle.flock(File::LOCK_EX) if command == 'LOCK'
+        lock_handle.flock(File::LOCK_UN) if command == 'UNLOCK'
+
+        socket.puts "#{command}ED"
+      rescue Timeout::Error
+        socket.puts 'TIMEOUT'
+        return
+      ensure
+        socket.flush
+        socket.close
+      end
+    end
   end
+  thread.abort_on_exception = true
 end
 
 # run the normal git-receive-pack giving it access to the lock socket
-# note our abort_on_exception can result in spawn throwing; just eat those exceptions
-Process.wait spawn(ENV, 'git-receive-pack', *ARGV) rescue
-exit_code = $?.to_i
+begin
+  Process.wait spawn(ENV, 'git-receive-pack', *ARGV)
+  exit_status = $?.exitstatus
+ensure
+  # ensure the thread is shutdown and cleanup our socket
+  if repo_path && mirror_url
+    thread.kill
+    File.unlink(lock_socket) if File.exist?(lock_socket)
+  end
 
-# ensure the thread is shutdown and cleanup our socket
-if repo_path && mirror_url
-  thread.kill
-  File.unlink(lock_socket)
+  # note exit status can be nil; we want to default to a failing code in that case
+  exit exit_status || 1
 end
-
-exit exit_code
