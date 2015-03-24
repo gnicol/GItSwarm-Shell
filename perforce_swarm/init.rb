@@ -22,6 +22,12 @@ module PerforceSwarm
     rescue Mirror::Exception
       return false
     end
+
+    def post_receive(changes, repo_path)
+      # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
+      Mirror.lock_socket('UNLOCK') if Mirror.mirror_url(repo_path)
+      super
+    end
   end
 
   # For ssh, do an early fetch from mirror to
