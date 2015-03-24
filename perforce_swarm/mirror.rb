@@ -78,9 +78,7 @@ module PerforceSwarm
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
-      unless status.zero?
-        fail Exception, push_output
-      end
+      fail Exception, push_output unless status.zero?
 
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^(?:remote: )?Commencing push (\d+) processing.../, 1]
@@ -122,6 +120,7 @@ module PerforceSwarm
         lock_socket('UNLOCK') if lock_response == 'LOCKED'
       rescue
         # the unlock is a courtesy, quash any exceptions
+        nil
       end
 
       raise e
