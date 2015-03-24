@@ -2,6 +2,7 @@ require 'open3'
 require 'socket'
 require 'tmpdir'
 require_relative '../lib/gitlab_init'
+require_relative '../lib/gitlab_post_receive'
 
 # @todo; for push and fetch perhaps flush? the output is just coming in one whallop as it is
 # @todo; if we could detect that a pull hadn't run recently we could trigger one in push to protect against missed spots
@@ -9,6 +10,9 @@ module PerforceSwarm
   class Mirror
     class Exception < StandardError
     end
+
+    # System User Constant
+    SYSTEM_USER = 'system-user'
 
     def self.popen(cmd, path = nil, stream_output = nil)
       unless cmd.is_a?(Array)
@@ -135,6 +139,7 @@ module PerforceSwarm
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
     # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
     # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
+    # @todo; make the system user used for the mirror fetch post recieve hook configurable
     def self.fetch(repo_path)
       # see if we have a mirror remote, if not nothing to do
       return true unless (mirror = mirror_url(repo_path))
@@ -151,12 +156,25 @@ module PerforceSwarm
             return !last_fetch_error(repo_path)
           end
 
+          # Now that we are locked, grab our current refs
+          old_refs, _show_status = popen(%w(git show-ref --heads --tags), repo_path)
+
           # fetch from the mirror, if that fails then capute failure details
           output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
           error_file     = File.join(repo_path, 'mirror_fetch.error')
           if status.zero?
             # Everything went well, clear the error file if present
             FileUtils.safe_unlink(error_file)
+
+            # Determine our new refs
+            new_refs, _show_status = popen(%w(git show-ref --heads --tags), repo_path)
+            changes = show_ref_updates(old_refs, new_refs)
+
+            # If we have changes, post them to redis
+            if changes && !changes.strip.empty?
+              GitlabPostReceive.new(repo_path, SYSTEM_USER, changes).send(:update_redis)
+            end
+
             return true
           else
             # Something went wrong, record the details
@@ -186,6 +204,31 @@ module PerforceSwarm
       mirror.strip!
       return false unless status.zero? && !mirror.empty?
       mirror
+    end
+
+    def self.show_ref_updates(old_refs, new_refs)
+      old_refs, new_refs = old_refs.split("\n"), new_refs.split("\n")
+      changes            = {}
+
+      # Intially build our changelist from old ref ids that do not appear in the new ref ids.
+      # Build the changes as if they were all deleted. Ones that weren't actually deleted,
+      # but just updated will be fixed up when we loop through the new refs
+      (old_refs - new_refs).each do |ref|
+        sha, refspec = ref.strip.split(' ')
+        changes[refspec] = [sha, sprintf('%040i', 0), refspec]
+      end
+
+      # Add new ref ids that don't appear in the old ref ids,
+      # Some of these will be adds, and some are updates
+      (new_refs - old_refs).each do |ref|
+        sha, refspec = ref.strip.split(' ')
+        # Update existing refspec
+        changes[refspec][1] = sha if changes[refspec]
+        # Adding new refspec
+        changes[refspec]    ||= [sprintf('%040i', 0), sha, refspec]
+      end
+
+      changes.map { |_refspec, refs|  refs.join(' ') }.join("\n")
     end
 
     # used to send the command LOCK or UNLOCK to the write lock socket
