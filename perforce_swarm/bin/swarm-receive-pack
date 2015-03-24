@@ -47,7 +47,14 @@ end
 
 # run the normal git-receive-pack giving it access to the lock socket
 begin
-  Process.wait spawn(ENV, 'git-receive-pack', *ARGV)
+  # if the caller specified a git-path use is. otherwise we rely on
+  # the path environment routing 'git' to the correct instance
+  git_path = 'git'
+  if ARGV.first[/^--git-path=/]
+    git_path = ARGV.shift[/^--git-path=(.*)/, 1]
+  end
+
+  Process.wait spawn(ENV, git_path, 'receive-pack', *ARGV)
   exit_status = $?.exitstatus
 ensure
   # ensure the thread is shutdown and cleanup our socket
