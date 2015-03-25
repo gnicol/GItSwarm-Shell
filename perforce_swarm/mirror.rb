@@ -3,8 +3,6 @@ require 'socket'
 require 'tmpdir'
 require_relative '../lib/gitlab_init'
 
-# @todo; for push and fetch perhaps flush? the output is just coming in one whallop as it is
-# @todo; if we could detect that a pull hadn't run recently we could trigger one in push to protect against missed spots
 module PerforceSwarm
   class Mirror
     class Exception < StandardError
@@ -64,7 +62,6 @@ module PerforceSwarm
     # push to the remote mirror (if there is one)
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
-    # @todo; when we have push and pull locks, our call to pull will have to specify an ignore push lock
     def self.push(refs, repo_path)
       # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
 
@@ -127,46 +124,58 @@ module PerforceSwarm
     end
 
     # perform safe fetch but then throws an exception if errors occurred
-    def self.fetch!(repo_path)
-      fail Exception, last_fetch_error(repo_path) unless fetch(repo_path)
+    def self.fetch!(repo_path, skip_if_pushing = false)
+      fail Exception, last_fetch_error(repo_path) unless fetch(repo_path, skip_if_pushing)
     end
 
     # fetch from the remote mirror (if there is one) and return success/failure
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
-    # @todo; if we know the user is pulling and the mirror is busy; skip the pull to avoid GF read lock?
-    # @todo; add some fs level locking so this pull can't update refs before a mirror push wraps up
-    def self.fetch(repo_path)
+    def self.fetch(repo_path, skip_if_pushing = true)
       # see if we have a mirror remote, if not nothing to do
       return true unless (mirror = mirror_url(repo_path))
 
-      # Lock during mirror fetch. Lock is automatically released after this
-      # block is finished, but we manually release the lock for performance.
-      File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |lock_handle|
+      # the lock is automatically released after the blocks finish, but we manually release the lock for performance.
+      File.open(File.join(repo_path, 'mirror_push.lock'), 'w+', 0644) do |push_handle|
         begin
-          # Try and take the lock, but don't yet block if it's already taken
-          unless lock_handle.flock(File::LOCK_NB | File::LOCK_EX)
-            # Looks like someone else is already doing a pull
-            # We will wait for them to finish and then use their result
-            lock_handle.flock(File::LOCK_SH)
-            return !last_fetch_error(repo_path)
-          end
+          # we honor push locks to ensure we don't pull down partially mirror pushed changes causing ref locking errors.
+          # for pure reads, instead of waiting we just skip the mirror pull if a push lock is in place
+          return !last_fetch_error(repo_path) if skip_if_pushing && !push_handle.flock(File::LOCK_NB | File::LOCK_SH)
 
-          # fetch from the mirror, if that fails then capute failure details
-          output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
-          error_file     = File.join(repo_path, 'mirror_fetch.error')
-          if status.zero?
-            # Everything went well, clear the error file if present
-            FileUtils.safe_unlink(error_file)
-            return true
-          else
-            # Something went wrong, record the details
-            $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{output}"
-            File.write(error_file, output)
-            return false
+          # looks like we're not push locked or we're not skipping, ensure we have a shared push lock before continuing
+          push_handle.flock(File::LOCK_SH)
+
+          # we use a fetch lock to avoid a 'cache stampede' style issue should multiple pullers overlap
+          File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_handle|
+            begin
+              # Try and take the lock, but don't yet block if it's already taken
+              unless fetch_handle.flock(File::LOCK_NB | File::LOCK_EX)
+                # Looks like someone else is already doing a pull
+                # We will wait for them to finish and then use their result
+                fetch_handle.flock(File::LOCK_SH)
+                return !last_fetch_error(repo_path)
+              end
+
+              # fetch from the mirror, if that fails then capute failure details
+              output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+              error_file     = File.join(repo_path, 'mirror_fetch.error')
+              if status.zero?
+                # Everything went well, clear the error file if present
+                FileUtils.safe_unlink(error_file)
+                return true
+              else
+                # Something went wrong, record the details
+                $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{output}"
+                File.write(error_file, output)
+                return false
+              end
+            ensure
+              fetch_handle.flock(File::LOCK_UN)
+              fetch_handle.close
+            end
           end
         ensure
-          lock_handle.flock(File::LOCK_UN)
-          lock_handle.close
+          push_handle.flock(File::LOCK_UN)
+          push_handle.close
         end
       end
     end

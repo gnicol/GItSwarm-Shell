@@ -9,7 +9,7 @@ require 'timeout'
 repo_path  = ARGV.length > 0 && File.realpath(ARGV.last) rescue false
 mirror_url = repo_path && PerforceSwarm::Mirror.mirror_url(repo_path)
 if repo_path && mirror_url
-  lock_handle = nil # keeping the handle scoped outside the thread is important!
+  push_lock = nil # keeping the handle scoped outside the thread is important!
   lock_socket = "#{repo_path}/mirror_push-#{Process.pid}.socket"
   ENV['WRITE_LOCK_SOCKET'] = lock_socket
   File.unlink(lock_socket) if File.exist?(lock_socket)
@@ -25,17 +25,17 @@ if repo_path && mirror_url
         # ignore unknown commands
         if command != 'LOCK' && command != 'UNLOCK'
           socket.puts 'UNKNOWN'
-          return
+          next
         end
 
-        lock_handle = File.open("#{repo_path}/mirror_push.lock", 'w+', 0644) unless lock_handle
-        lock_handle.flock(File::LOCK_EX) if command == 'LOCK'
-        lock_handle.flock(File::LOCK_UN) if command == 'UNLOCK'
+        push_lock = File.open("#{repo_path}/mirror_push.lock", 'w+', 0644) unless push_lock
+        push_lock.flock(File::LOCK_EX) if command == 'LOCK'
+        push_lock.flock(File::LOCK_UN) if command == 'UNLOCK'
 
         socket.puts "#{command}ED"
       rescue Timeout::Error
         socket.puts 'TIMEOUT'
-        return
+        next
       ensure
         socket.flush
         socket.close
