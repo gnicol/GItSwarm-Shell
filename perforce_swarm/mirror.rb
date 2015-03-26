@@ -3,6 +3,7 @@ require 'socket'
 require 'tmpdir'
 require_relative '../lib/gitlab_init'
 require_relative '../lib/gitlab_post_receive'
+require_relative '../lib/gitlab_custom_hook'
 
 module PerforceSwarm
   class Mirror
@@ -151,6 +152,7 @@ module PerforceSwarm
           # we use a fetch lock to avoid a 'cache stampede' style issue should multiple pullers overlap
           File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_handle|
             begin
+              error_file = File.join(repo_path, 'mirror_fetch.error')
               # Try and take the lock, but don't yet block if it's already taken
               unless fetch_handle.flock(File::LOCK_NB | File::LOCK_EX)
                 # Looks like someone else is already doing a pull
@@ -160,31 +162,33 @@ module PerforceSwarm
               end
 
               # Now that we are locked, grab our current refs
-              old_refs, _show_status = popen(%w(git show-ref --heads --tags), repo_path)
+              old_refs = show_ref(repo_path)
 
               # fetch from the mirror, if that fails then capute failure details
               output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
-              error_file     = File.join(repo_path, 'mirror_fetch.error')
-              if status.zero?
-                # Everything went well, clear the error file if present
-                FileUtils.safe_unlink(error_file)
+              fail Exception, output unless status.zero?
 
-                # Determine our new refs
-                new_refs, _show_status = popen(%w(git show-ref --heads --tags), repo_path)
-                changes = show_ref_updates(old_refs, new_refs)
+              # Everything went well, clear the error file if present
+              FileUtils.safe_unlink(error_file)
 
-                # If we have changes, post them to redis
-                if changes && !changes.strip.empty?
-                  GitlabPostReceive.new(repo_path, SYSTEM_USER, changes).send(:update_redis)
-                end
+              # Determine our new refs
+              changes = show_ref_updates(old_refs, show_ref(repo_path))
 
-                return true
-              else
-                # Something went wrong, record the details
-                $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{output}"
-                File.write(error_file, output)
-                return false
+              # If we have changes, post them to redis
+              if changes && !changes.strip.empty?
+                # Make sure we don't pass along our fetch user to write actions
+                user, ENV['GL_ID'] = ENV['GL_ID'], nil
+                GitlabPostReceive.new(repo_path, SYSTEM_USER, changes).send(:update_redis)
+                GitlabCustomHook.new.post_receive(changes, repo_path)
+                ENV['GL_ID'] = user
               end
+
+              return true
+            rescue Mirror::Exception => e
+              # Something went wrong, record the details
+              $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{e.message}"
+              File.write(error_file, e.message)
+              return false
             ensure
               fetch_handle.flock(File::LOCK_UN)
               fetch_handle.close
@@ -214,26 +218,31 @@ module PerforceSwarm
       mirror
     end
 
-    def self.show_ref_updates(old_refs, new_refs)
-      old_refs, new_refs = old_refs.split("\n"), new_refs.split("\n")
-      changes            = {}
+    def self.show_ref(repo_path)
+      refs, status = popen(%w(git show-ref --heads --tags), repo_path)
+      fail "git show-ref failed with:\n#{refs}" unless status.zero?
+      refs.strip!
+    end
 
-      # Intially build our changelist from old ref ids that do not appear in the new ref ids.
-      # Build the changes as if they were all deleted. Ones that weren't actually deleted,
-      # but just updated will be fixed up when we loop through the new refs
+    def self.show_ref_updates(old_refs, new_refs)
+      old_refs, new_refs, changes = old_refs.split("\n"), new_refs.split("\n"), {}
+
+      # Loop over anything that was modified or deleted, and create a changes entry for it
+      # Initially we assume deletes occured, but we will touch them up to be edits later
       (old_refs - new_refs).each do |ref|
+        fail "invalid ref output:\n#{ref}" unless ref =~ /^\h{40} \S+$/
         sha, refspec = ref.strip.split(' ')
-        changes[refspec] = [sha, sprintf('%040i', 0), refspec]
+        changes[refspec] = [sha, '0' * 40, refspec]
       end
 
-      # Add new ref ids that don't appear in the old ref ids,
-      # Some of these will be adds, and some are updates
+      # Loop over anything that was modified or added, and create/update changes entry for it
       (new_refs - old_refs).each do |ref|
+        fail "invalid ref output:\n#{ref}" unless ref =~ /^\h{40} \S+$/
         sha, refspec = ref.strip.split(' ')
-        # Update existing refspec
-        changes[refspec][1] = sha if changes[refspec]
-        # Adding new refspec
-        changes[refspec]    ||= [sprintf('%040i', 0), sha, refspec]
+        # If refspec doesn't exist yet, this will be an add
+        changes[refspec]  ||= ['0' * 40, sha, refspec]
+        # Ensure any 'false deletes' are touched up to be edits
+        changes[refspec][1] = sha
       end
 
       changes.map { |_refspec, refs|  refs.join(' ') }.join("\n")

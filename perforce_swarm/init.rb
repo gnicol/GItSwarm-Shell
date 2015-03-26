@@ -6,7 +6,7 @@ require_relative '../lib/gitlab_projects'
 module PerforceSwarm
   # If everything else looks good, we want to do a mirror
   # push as the last step in the pre-recieve hook
-  module GitlabCustomHook
+  module GitlabCustomHookExtension
     def pre_receive(changes, repo_path)
       return false unless super
 
@@ -30,7 +30,7 @@ module PerforceSwarm
     end
   end
 
-  module GitlabNet
+  module GitlabNetExtension
     def check_access(cmd, repo, actor, changes)
       # Store the repo and command so we can use it in other methods
       @repo  = repo
@@ -45,7 +45,7 @@ module PerforceSwarm
       # Have the api check for a service user if this is a mirror repo
       if @repo
         mirror = Mirror.mirror_url(File.join(config.repos_path, @repo))
-        # params['check_service_user'] = true if mirror
+        params['check_service_user'] = true if mirror
       end
 
       response = super
@@ -62,7 +62,7 @@ module PerforceSwarm
 
   # For ssh, do an early fetch from mirror to
   # make sure all the refs are up-to-date
-  module GitlabShell
+  module GitlabShellExtension
     def process_cmd
       repo_full_path = File.join(repos_path, repo_name)
 
@@ -89,7 +89,7 @@ module PerforceSwarm
     end
   end
 
-  module GitlabProjects
+  module GitlabProjectsExtension
     def create_branch
       branch_name = ARGV[0]
       ref         = ARGV[1] || 'HEAD'
@@ -109,17 +109,17 @@ module PerforceSwarm
 end
 
 class GitlabCustomHook
-  prepend PerforceSwarm::GitlabCustomHook
+  prepend PerforceSwarm::GitlabCustomHookExtension
 end
 
 class GitlabNet
-  prepend PerforceSwarm::GitlabNet
+  prepend PerforceSwarm::GitlabNetExtension
 end
 
 class GitlabShell
-  prepend PerforceSwarm::GitlabShell
+  prepend PerforceSwarm::GitlabShellExtension
 end
 
 class GitlabProjects
-  prepend PerforceSwarm::GitlabProjects
+  prepend PerforceSwarm::GitlabProjectsExtension
 end
