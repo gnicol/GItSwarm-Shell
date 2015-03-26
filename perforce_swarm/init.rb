@@ -30,6 +30,36 @@ module PerforceSwarm
     end
   end
 
+  module GitlabNet
+    def check_access(cmd, repo, actor, changes)
+      # Store the repo and command so we can use it in other methods
+      @repo  = repo
+      @cmd   = cmd
+      status = super
+      @repo  = nil
+      @cmd   = nil
+      status
+    end
+
+    def request(method, url, params = {})
+      # Have the api check for a service user if this is a mirror repo
+      if @repo
+        mirror = Mirror.mirror_url(File.join(config.repos_path, @repo))
+        # params['check_service_user'] = true if mirror
+      end
+
+      response = super
+
+      # Custom error handling for 400 errors, because GitLab's error
+      # handling doesn't make it back to the client properly
+      if response.code == '400'
+        puts "#{format('%04x', response.body.bytesize + 8)}ERR #{response.body}"
+      end
+
+      response
+    end
+  end
+
   # For ssh, do an early fetch from mirror to
   # make sure all the refs are up-to-date
   module GitlabShell
@@ -80,6 +110,10 @@ end
 
 class GitlabCustomHook
   prepend PerforceSwarm::GitlabCustomHook
+end
+
+class GitlabNet
+  prepend PerforceSwarm::GitlabNet
 end
 
 class GitlabShell
