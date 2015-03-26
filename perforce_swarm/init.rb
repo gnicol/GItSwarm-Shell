@@ -31,28 +31,12 @@ module PerforceSwarm
   end
 
   module GitlabNetExtension
-    def check_access(cmd, repo, actor, changes)
-      # Store the repo and command so we can use it in other methods
-      @repo  = repo
-      @cmd   = cmd
-      status = super
-      @repo  = nil
-      @cmd   = nil
-      status
-    end
-
     def request(method, url, params = {})
-      # Have the api check for a service user if this is a mirror repo
-      if @repo
-        mirror = Mirror.mirror_url(File.join(config.repos_path, @repo))
-        params['check_service_user'] = true if mirror
-      end
-
       response = super
 
-      # Custom error handling for 400 errors, because GitLab's error
-      # handling doesn't make it back to the client properly
-      if response.code == '400'
+      # Custom error handling for 400 errors for ssh on /allowed, because GitLab's
+      # error handling doesn't make it back to the client properly
+      if response.code == '400' && ENV['SSH_ORIGINAL_COMMAND'] && url =~ /\/allowed$/
         puts "#{format('%04x', response.body.bytesize + 8)}ERR #{response.body}"
       end
 
