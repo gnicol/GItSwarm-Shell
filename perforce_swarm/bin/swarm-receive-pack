@@ -22,17 +22,12 @@ if repo_path && mirror_url
           command = socket.gets.strip
         end
 
-        # ignore unknown commands
-        if command != 'LOCK' && command != 'UNLOCK'
-          socket.puts 'UNKNOWN'
-          next
-        end
-
-        push_lock = File.open("#{repo_path}/mirror_push.lock", 'w+', 0644) unless push_lock
-        push_lock.flock(File::LOCK_EX) if command == 'LOCK'
-        push_lock.flock(File::LOCK_UN) if command == 'UNLOCK'
-
+        push_lock = PerforceSwarm::Mirror.lock_file(command, repo_path)
         socket.puts "#{command}ED"
+      rescue ArgumentError
+        # ignore unknown commands
+        socket.puts 'UNKNOWN'
+        next
       rescue Timeout::Error
         socket.puts 'TIMEOUT'
         next

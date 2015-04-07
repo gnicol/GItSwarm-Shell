@@ -13,6 +13,12 @@ module PerforceSwarm
     # System User Constant
     SYSTEM_USER = 'system-user'
 
+    # Class level instance variable for the push_lock
+    @push_lock = nil
+    class << self
+      attr_reader :push_lock
+    end
+
     def self.popen(cmd, path = nil, stream_output = nil)
       unless cmd.is_a?(Array)
         fail 'System commands must be given as an array of strings'
@@ -67,21 +73,24 @@ module PerforceSwarm
     # push to the remote mirror (if there is one)
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
-    def self.push(refs, repo_path)
-      # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
+    def self.push(refs, repo_path, options = {})
+      options.reverse_merge!(local_locking: false)
 
+      # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
       # no configured mirror means nutin to do; exit happy!
       return unless (mirror = mirror_url(repo_path))
 
       # stores the time taken for various phases
       durations = Durations.new
 
-      # we communicate with our custom git-receive-pack script to take out a write lock around the push to mirror
-      # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
+      # Take out a write lock around the push to mirror
+      # During a normal push operation we cannot take out this lock ourselves as
+      # we want it held through post-receive which is a different process, so
+      # we communicate with our custom git-receive-pack script to do the locking
+      # unless local_locking is set to true
       durations.start(:lock)
-      lock_response = lock_socket('LOCK')
+      locked = take_write_lock(repo_path, options[:local_locking])
       durations.stop(:lock)
-      fail Exception "Expected LOCKED confirmation but received: #{lock}" unless lock_response == 'LOCKED'
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
@@ -130,7 +139,7 @@ module PerforceSwarm
 
       # don't hold the lock while we communicate our displeasure over the network to the client
       begin
-        lock_socket('UNLOCK') if lock_response == 'LOCKED'
+        release_write_lock if locked
       rescue
         # the unlock is a courtesy, quash any exceptions
         nil
@@ -269,6 +278,28 @@ module PerforceSwarm
       changes.map { |_refspec, refs|  refs.join(' ') }.join("\n")
     end
 
+    def self.take_write_lock(repo_path, local_locking = false)
+      local_locking ? lock_file('LOCK', repo_path) : lock_socket('LOCK')
+      true
+    end
+
+    def self.release_write_lock(repo_path, local_locking = false)
+      local_locking ? lock_file('UNLOCK', repo_path) : lock_socket('UNLOCK')
+      true
+    end
+
+    # Used to lock/unlock mirror_push.lock and holds onto the lock file in self.push_lock while the file is locked
+    def self.lock_file(command, repo_path)
+      if command != 'LOCK' && command != 'UNLOCK'
+        fail ArgumentError "Unknown command: #{command} sent to lock_file"
+      end
+
+      push_lock = @push_lock || File.open("#{repo_path}/mirror_push.lock", 'w+', 0644)
+      push_lock.flock(File::LOCK_EX) && @push_lock = push_lock if command == 'LOCK'
+      push_lock.flock(File::LOCK_UN) && @push_lock = nil if command == 'UNLOCK'
+      push_lock
+    end
+
     # used to send the command LOCK or UNLOCK to the write lock socket
     # only usable on mirrored repos during a push operation
     def self.lock_socket(command)
@@ -278,6 +309,9 @@ module PerforceSwarm
       socket.flush
       response = socket.gets.to_s.strip
       socket.close
+      if response != "#{command}ED"
+        fail Exception "Expected #{command}ED confirmation but received: #{response}"
+      end
       response
     end
   end

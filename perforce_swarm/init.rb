@@ -77,17 +77,21 @@ module PerforceSwarm
     def create_branch
       branch_name = ARGV[0]
       ref         = ARGV[1] || 'HEAD'
-      Mirror.push(["#{ref}:#{branch_name}"], full_path)
+      Mirror.push(["#{ref}:#{branch_name}"], full_path, local_locking: true)
       super
     rescue Mirror::Exception
       return false
+    ensure
+      Mirror.release_write_lock(full_path, true)
     end
 
     def rm_branch
-      Mirror.push([":#{ARGV.first}"], full_path)
+      Mirror.push([":#{ARGV.first}"], full_path, local_locking: true)
       super
     rescue Mirror::Exception
       return false
+    ensure
+      Mirror.release_write_lock(full_path, true)
     end
   end
 end
