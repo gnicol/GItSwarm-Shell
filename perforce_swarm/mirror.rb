@@ -73,13 +73,20 @@ module PerforceSwarm
       # no configured mirror means nutin to do; exit happy!
       return unless (mirror = mirror_url(repo_path))
 
+      # stores the time taken for various phases
+      durations = Durations.new
+
       # we communicate with our custom git-receive-pack script to take out a write lock around the push to mirror
       # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
+      durations.start(:lock)
       lock_response = lock_socket('LOCK')
+      durations.stop(:lock)
       fail Exception "Expected LOCKED confirmation but received: #{lock}" unless lock_response == 'LOCKED'
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
+      durations.start(:push)
       push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
+      durations.stop(:push)
       fail Exception, push_output unless status.zero?
 
       # try to extract the push id. if we don't have one we're done
@@ -89,6 +96,8 @@ module PerforceSwarm
       # git-fusion returns from the push early, we want to delay till its all the way into p4d
       # we swap to a temp dir (to ensure we don't get errors for being already in a git repo)
       # and we clone the @wait@RepoName to delay till its done
+      durations.start(:wait)
+      wait_outputs = ''
       Dir.mktmpdir do |temp|
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
@@ -106,6 +115,7 @@ module PerforceSwarm
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
+          wait_outputs += output
 
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
           return if output =~ /^(?:remote: )?Push \d+ completed successfully/
@@ -114,6 +124,7 @@ module PerforceSwarm
           fail Exception, output unless output =~ /Waiting for push \d+.../
         end
       end
+      durations.stop(:wait)
     rescue StandardError => e
       $logger.error "Push to mirror failed for: #{repo_path}\n#{refs * "\n"}\n#{e.message}"
 
@@ -126,6 +137,8 @@ module PerforceSwarm
       end
 
       raise e
+    ensure
+      $logger.info "Push: #{repo_path}\n#{refs * "\n"}\nDurations #{durations}\n#{push_output}#{wait_outputs}"
     end
 
     # perform safe fetch but then throws an exception if errors occurred
@@ -165,7 +178,10 @@ module PerforceSwarm
               old_refs = show_ref(repo_path)
 
               # fetch from the mirror, if that fails then capute failure details
+              durations = Durations.new
+              durations.start(:fetch)
               output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+              durations.stop
               fail Exception, output unless status.zero?
 
               # Everything went well, clear the error file if present
@@ -192,6 +208,11 @@ module PerforceSwarm
             ensure
               fetch_handle.flock(File::LOCK_UN)
               fetch_handle.close
+              if durations && output
+                message = "Mirror fetch\nRepo Path: #{repo_path}\nMirror: #{mirror}\nDuration #{durations}\n"
+                message += "Exit Status: #{status}\n#{output}"
+                $logger.info message
+              end
             end
           end
         ensure
@@ -258,6 +279,30 @@ module PerforceSwarm
       response = socket.gets.to_s.strip
       socket.close
       response
+    end
+  end
+
+  class Durations
+    def initialize
+      @durations = {}
+    end
+
+    def start(id)
+      fail 'Cannot start timer, id has already been used' if @durations[id]
+      @durations[id] = {start: Time.now.to_f, stop: nil}
+    end
+
+    def stop(id = nil)
+      id = @durations.keys.last unless id
+      fail 'There are no active timers' if @durations.empty?
+      fail 'No active timer under specified id' unless @durations[id]
+      fail 'Timer is already stopped' if @durations[id][:stop]
+      @durations[id][:stop] = Time.now.to_f
+    end
+
+    def to_s
+      now = Time.now.to_f
+      @durations.map { |id, timer| "#{id}: #{format('%.3f', (timer[:stop] || now) - timer[:start])}" }.join(' ')
     end
   end
 end
