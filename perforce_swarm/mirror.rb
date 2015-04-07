@@ -139,7 +139,7 @@ module PerforceSwarm
 
       # don't hold the lock while we communicate our displeasure over the network to the client
       begin
-        release_write_lock if locked
+        release_write_lock(repo_path) if locked
       rescue
         # the unlock is a courtesy, quash any exceptions
         nil
