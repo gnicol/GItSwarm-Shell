@@ -1,5 +1,5 @@
 ROOT_PATH = File.expand_path(File.join(File.dirname(__FILE__), ".."))
-
+require_relative '../perforce_swarm/rspec'
 if ENV['COVERALLS']
   require 'coveralls'
   Coveralls.wear!
