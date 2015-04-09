@@ -8,6 +8,7 @@ require 'timeout'
 # we only do this if we were passed the path to a valid repo with mirroring enabled
 repo_path  = ARGV.length > 0 && File.realpath(ARGV.last) rescue false
 mirror_url = repo_path && PerforceSwarm::Mirror.mirror_url(repo_path)
+
 if repo_path && mirror_url
   push_lock = nil # keeping the handle scoped outside the thread is important!
   lock_socket = "#{repo_path}/mirror_push-#{Process.pid}.socket"
@@ -22,12 +23,20 @@ if repo_path && mirror_url
           command = socket.gets.strip
         end
 
-        push_lock = PerforceSwarm::Mirror.lock_file(command, repo_path)
+        case command
+        when 'LOCK'
+          PerforceSwarm::Mirror.write_lock(repo_path)
+          # Grab the open lock and hold it in the parent process
+          push_lock = PerforceSwarm::Mirror.push_locks[File.realpath("#{repo_path}/mirror_push.lock")]
+        when 'UNLOCK'
+          PerforceSwarm::Mirror.write_unlock(repo_path)
+        else
+          # ignore unknown commands
+          socket.puts 'UNKNOWN'
+          next
+        end
+
         socket.puts "#{command}ED"
-      rescue ArgumentError
-        # ignore unknown commands
-        socket.puts 'UNKNOWN'
-        next
       rescue Timeout::Error
         socket.puts 'TIMEOUT'
         next
@@ -38,6 +47,10 @@ if repo_path && mirror_url
     end
   end
   thread.abort_on_exception = true
+else
+  # Set the lock socket so the mirroring code knows we are intentionally
+  # going to call it during recieve-pack, but without a mirror.
+  ENV['WRITE_LOCK_SOCKET'] = PerforceSawrm::Mirror.NOT_MIRRORED
 end
 
 # run the normal git-receive-pack giving it access to the lock socket
