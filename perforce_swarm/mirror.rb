@@ -289,7 +289,7 @@ module PerforceSwarm
 
     def start(id)
       fail 'Cannot start timer, id has already been used' if @durations[id]
-      @durations[id] = {start: Time.now.to_f, stop: nil}
+      @durations[id] = { start: Time.now.to_f, stop: nil }
     end
 
     def stop(id = nil)
