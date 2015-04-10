@@ -48,7 +48,7 @@ if repo_path && mirror_url
 else
   # Set the lock socket so the mirroring code knows we are intentionally
   # going to call it during receive-pack, but without a mirror.
-  ENV['WRITE_LOCK_SOCKET'] = PerforceSwarm::Mirror.NOT_MIRRORED
+  ENV['WRITE_LOCK_SOCKET'] = PerforceSwarm::Mirror::NOT_MIRRORED
 end
 
 # run the normal git-receive-pack giving it access to the lock socket
