@@ -33,14 +33,14 @@ describe PerforceSwarm::Mirror do
     it 'should fail when receive_pack is set, and no lock socket is available in the environment' do
       (gl_project = gl_projects_create).exec
       expect { subject.send(:push, [], gl_project.full_path, receive_pack: true) }
-        .to raise_error(PerforceSwarm::Mirror::Exception, /Expected WRITE_LOCK_SOCKET/)
+        .to raise_error(PerforceSwarm::Mirror::Exception, /WRITE_LOCK_SOCKET is required/)
     end
 
     it 'should fail when receive_pack is set, and ENV[WRITE_LOCK_SOCKET] is invalid' do
       (gl_project = gl_projects_create).exec
       ENV['WRITE_LOCK_SOCKET'] = "#{File.realpath(tmp_repos_path)}/no_socket"
       expect { subject.send(:push, [], gl_project.full_path, receive_pack: true) }
-        .to raise_error(PerforceSwarm::Mirror::Exception, /Expected WRITE_LOCK_SOCKET/)
+        .to raise_error(PerforceSwarm::Mirror::Exception, /WRITE_LOCK_SOCKET is invalid/)
     end
   end
 
