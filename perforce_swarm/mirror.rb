@@ -15,13 +15,7 @@ module PerforceSwarm
 
     # Constant used in ENV[WRITE_LOCK_SOCKET] when there is no
     # socket due to the requested repo not being mirrored
-    NOT_MIRRORED = '__NOTMIRRORED__'
-
-    # Class level instance variable for the push_locks
-    @push_locks = nil
-    class << self
-      attr_reader :push_locks
-    end
+    NOT_MIRRORED = '__NOT_MIRRORED__'
 
     def self.popen(cmd, path = nil, stream_output = nil)
       unless cmd.is_a?(Array)
@@ -81,13 +75,16 @@ module PerforceSwarm
       # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
 
       # Set default options and check that this function is being called correctly
-      options = { receive_pack: false, require_block: true }.merge(options)
-      options[:require_block] = false if options[:receive_pack]
+      options = { receive_pack: false, require_block: !options[:receive_pack] }.merge(options)
       if options[:require_block] && !block_given?
-        fail ArgumentException, 'Expected block while options[:require_block] is true'
+        fail ArgumentError, 'Expected block while options[:require_block] is true'
       end
-      if options[:receive_pack] && !ENV['WRITE_LOCK_SOCKET']
-        fail Exception, 'Expected WRITE_LOCK_SOCKET to be set in environment when pushing using recieve_pack'
+      if options[:receive_pack] && !env_socket_set?
+        fail(
+          Exception,
+          'Expected WRITE_LOCK_SOCKET to be set to a valid socket in environment'\
+          "when pushing using receive_pack\nGot: #{ENV['WRITE_LOCK_SOCKET']}"
+        )
       end
 
       mirror = mirror_url(repo_path)
@@ -230,7 +227,7 @@ module PerforceSwarm
                 # Make sure we don't pass along our fetch user to write actions
                 user, ENV['GL_ID'] = ENV['GL_ID'], nil
                 GitlabPostReceive.new(repo_path, SYSTEM_USER, changes).send(:update_redis)
-                GitlabCustomHook.new.post_receive(changes, repo_path, ignore_lock: true)
+                GitlabCustomHook.new.post_receive(changes, repo_path, receive_pack: false)
                 ENV['GL_ID'] = user
               end
 
@@ -305,35 +302,26 @@ module PerforceSwarm
     end
 
     def self.write_lock(repo_path, use_socket = false)
-      if use_socket
-        lock_socket('LOCK')
-        return true
-      end
+      return lock_socket('LOCK') if use_socket
 
       lock_file = File.realpath("#{repo_path}/mirror_push.lock")
       @push_locks ||= {}
       @push_locks[lock_file] ||= File.open(lock_file, 'w+', 0644)
       @push_locks[lock_file].flock(File::LOCK_EX)
-      true
+      lock_file
     end
 
     def self.write_unlock(repo_path, use_socket = false)
-      if use_socket
-        lock_socket('UNLOCK')
-        return true
-      end
+      return lock_socket('UNLOCK') if use_socket
 
       lock_file = File.realpath("#{repo_path}/mirror_push.lock")
       @push_locks[lock_file].flock(File::LOCK_UN) if @push_locks[lock_file]
-      true
+      lock_file
     end
 
     # used to send the command LOCK or UNLOCK to the write lock socket
     # only usable on mirrored repos during a push operation
     def self.lock_socket(command)
-      if !ENV['WRITE_LOCK_SOCKET'] || ENV['WRITE_LOCK_SOCKET'] == NOT_MIRRORED
-        fail Exception, 'Expected WRITE_LOCK_SOCKET to be set to a file in environment'
-      end
       socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
       socket.puts command.strip
       socket.flush
@@ -343,6 +331,11 @@ module PerforceSwarm
         fail Exception, "Expected #{command}ED confirmation but received: #{response}"
       end
       response
+    end
+
+    def self.env_socket_set?
+      return false unless ENV['WRITE_LOCK_SOCKET']
+      ENV['WRITE_LOCK_SOCKET'] == NOT_MIRRORED || File.socket?(ENV['WRITE_LOCK_SOCKET'])
     end
   end
 

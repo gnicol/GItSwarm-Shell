@@ -25,9 +25,7 @@ if repo_path && mirror_url
 
         case command
         when 'LOCK'
-          PerforceSwarm::Mirror.write_lock(repo_path)
-          # Grab the open lock and hold it in the parent process
-          push_lock = PerforceSwarm::Mirror.push_locks[File.realpath("#{repo_path}/mirror_push.lock")]
+          push_lock = PerforceSwarm::Mirror.write_lock(repo_path)
         when 'UNLOCK'
           PerforceSwarm::Mirror.write_unlock(repo_path)
         else
@@ -49,8 +47,8 @@ if repo_path && mirror_url
   thread.abort_on_exception = true
 else
   # Set the lock socket so the mirroring code knows we are intentionally
-  # going to call it during recieve-pack, but without a mirror.
-  ENV['WRITE_LOCK_SOCKET'] = PerforceSawrm::Mirror.NOT_MIRRORED
+  # going to call it during receive-pack, but without a mirror.
+  ENV['WRITE_LOCK_SOCKET'] = PerforceSwarm::Mirror.NOT_MIRRORED
 end
 
 # run the normal git-receive-pack giving it access to the lock socket

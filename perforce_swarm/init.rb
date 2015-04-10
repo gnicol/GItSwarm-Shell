@@ -24,9 +24,9 @@ module PerforceSwarm
     end
 
     def post_receive(changes, repo_path, options = {})
-      options = { ignore_lock: false }.merge(options)
+      options = { receive_pack: true }.merge(options)
       # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
-      Mirror.lock_socket('UNLOCK') if !options[:ignore_lock] && Mirror.mirror_url(repo_path)
+      Mirror.lock_socket('UNLOCK') if options[:receive_pack] && Mirror.mirror_url(repo_path)
       super(changes, repo_path)
     end
   end
