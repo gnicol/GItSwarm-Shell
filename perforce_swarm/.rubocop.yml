@@ -31,3 +31,6 @@ Style/GlobalVars:
 
 Style/GuardClause:
   Enabled: false
+
+Style/SpecialGlobalVars:
+  Enabled: false

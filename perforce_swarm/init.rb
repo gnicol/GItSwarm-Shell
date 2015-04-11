@@ -17,16 +17,17 @@ module PerforceSwarm
         refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
         refs.push(refspec)
       end
-      Mirror.push(refs, repo_path)
+      Mirror.push(refs, repo_path, receive_pack: true)
       true
     rescue Mirror::Exception
       return false
     end
 
-    def post_receive(changes, repo_path)
+    def post_receive(changes, repo_path, options = {})
+      options = { receive_pack: true }.merge(options)
       # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
-      Mirror.lock_socket('UNLOCK') if Mirror.mirror_url(repo_path)
-      super
+      Mirror.lock_socket('UNLOCK') if options[:receive_pack] && Mirror.mirror_url(repo_path)
+      super(changes, repo_path)
     end
   end
 
@@ -77,15 +78,17 @@ module PerforceSwarm
     def create_branch
       branch_name = ARGV[0]
       ref         = ARGV[1] || 'HEAD'
-      Mirror.push(["#{ref}:#{branch_name}"], full_path)
-      super
+      result = false
+      Mirror.push(["#{ref}:#{branch_name}"], full_path) { result = super }
+      result
     rescue Mirror::Exception
       return false
     end
 
     def rm_branch
-      Mirror.push([":#{ARGV.first}"], full_path)
-      super
+      result = false
+      Mirror.push([":#{ARGV.first}"], full_path) { result = super }
+      result
     rescue Mirror::Exception
       return false
     end

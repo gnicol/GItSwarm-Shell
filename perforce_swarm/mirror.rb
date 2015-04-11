@@ -13,6 +13,10 @@ module PerforceSwarm
     # System User Constant
     SYSTEM_USER = 'system-user'
 
+    # Constant used in ENV[WRITE_LOCK_SOCKET] when there is no
+    # socket due to the requested repo not being mirrored
+    NOT_MIRRORED = '__NOT_MIRRORED__'
+
     def self.popen(cmd, path = nil, stream_output = nil)
       unless cmd.is_a?(Array)
         fail 'System commands must be given as an array of strings'
@@ -64,24 +68,43 @@ module PerforceSwarm
       [cmd_output, cmd_status]
     end
 
-    # push to the remote mirror (if there is one)
+    # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
-    def self.push(refs, repo_path)
-      # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
+    def self.push(refs, repo_path, options = {})
+      mirror = mirror_url(repo_path)
+
+      # Set default options and check that this function is being called correctly
+      options = { receive_pack: false, require_block: !options[:receive_pack] }.merge(options)
+      fail ArgumentError, 'By default a block is required' if options[:require_block] && !block_given?
+
+      if options[:receive_pack]
+        socket_path = ENV['WRITE_LOCK_SOCKET']
+        fail Exception, 'WRITE_LOCK_SOCKET is required for :receive_pack' unless socket_path
+        if mirror && !File.socket?(socket_path)
+          fail Exception, "WRITE_LOCK_SOCKET is not a valid socket\n#{socket_path}"
+        end
+        if !mirror && !File.socket?(socket_path) && socket_path != NOT_MIRRORED
+          fail Exception, "WRITE_LOCK_SOCKET is invalid\n#{socket_path}"
+        end
+      end
 
       # no configured mirror means nutin to do; exit happy!
-      return unless (mirror = mirror_url(repo_path))
+      unless mirror
+        yield(mirror) if block_given?
+        return
+      end
 
       # stores the time taken for various phases
       durations = Durations.new
 
-      # we communicate with our custom git-receive-pack script to take out a write lock around the push to mirror
-      # we cannot take out this lock ourselves as we want it held through post-receive which is a different process
+      # Take out a write lock around the push to mirror
+      # During a :receive_pack operation we cannot take out this lock ourselves as
+      # we want it held through post-receive which is a different process, so
+      # we communicate with our custom git-receive-pack script to do the locking
       durations.start(:lock)
-      lock_response = lock_socket('LOCK')
+      locked = write_lock(repo_path, options[:receive_pack])
       durations.stop(:lock)
-      fail Exception "Expected LOCKED confirmation but received: #{lock}" unless lock_response == 'LOCKED'
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
@@ -91,7 +114,10 @@ module PerforceSwarm
 
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^(?:remote: )?Commencing push (\d+) processing.../, 1]
-      return unless push_id
+      unless push_id
+        yield(mirror) if block_given?
+        return
+      end
 
       # git-fusion returns from the push early, we want to delay till its all the way into p4d
       # we swap to a temp dir (to ensure we don't get errors for being already in a git repo)
@@ -118,7 +144,10 @@ module PerforceSwarm
           wait_outputs += output
 
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
-          return if output =~ /^(?:remote: )?Push \d+ completed successfully/
+          if output =~ /^(?:remote: )?Push \d+ completed successfully/
+            yield(mirror) if block_given?
+            return
+          end
 
           # blow up if it looks like the attempt didn't at least try to wait
           fail Exception, output unless output =~ /Waiting for push \d+.../
@@ -130,15 +159,21 @@ module PerforceSwarm
 
       # don't hold the lock while we communicate our displeasure over the network to the client
       begin
-        lock_socket('UNLOCK') if lock_response == 'LOCKED'
+        write_unlock(repo_path, options[:receive_pack]) if locked && options[:receive_pack]
       rescue
-        # the unlock is a courtesy, quash any exceptions
-        nil
+        # this unlock is a courtesy, quash any exceptions
+        nil # make rubocop happy
       end
 
       raise e
     ensure
-      $logger.info "Push: #{repo_path}\n#{refs * "\n"}\nDurations #{durations}\n#{push_output}#{wait_outputs}"
+      # For local locking, ensure we unlock before we exit this method
+      write_unlock(repo_path) if locked && !options[:receive_pack]
+
+      message = "Push: #{repo_path}\n"
+      message += "#{refs * "\n"}\n" if $! # skips refs if an exception occured, they were already logged
+      message += "Durations #{durations}\n#{push_output}#{wait_outputs}"
+      $logger.info message
     end
 
     # perform safe fetch but then throws an exception if errors occurred
@@ -195,7 +230,7 @@ module PerforceSwarm
                 # Make sure we don't pass along our fetch user to write actions
                 user, ENV['GL_ID'] = ENV['GL_ID'], nil
                 GitlabPostReceive.new(repo_path, SYSTEM_USER, changes).send(:update_redis)
-                GitlabCustomHook.new.post_receive(changes, repo_path)
+                GitlabCustomHook.new.post_receive(changes, repo_path, receive_pack: false)
                 ENV['GL_ID'] = user
               end
 
@@ -269,15 +304,40 @@ module PerforceSwarm
       changes.map { |_refspec, refs|  refs.join(' ') }.join("\n")
     end
 
+    def self.write_lock(repo_path, use_socket = false)
+      return lock_socket('LOCK') if use_socket
+
+      lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
+      @push_locks ||= {}
+      @push_locks[lock_file] ||= File.open(lock_file, 'w+', 0644)
+      @push_locks[lock_file].flock(File::LOCK_EX)
+      @push_locks[lock_file]
+    end
+
+    def self.write_unlock(repo_path, use_socket = false)
+      return lock_socket('UNLOCK') if use_socket
+
+      begin
+        lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
+        @push_locks ||= {}
+        @push_locks[lock_file].flock(File::LOCK_UN) if @push_locks[lock_file]
+        @push_locks[lock_file]
+      rescue
+        return false
+      end
+    end
+
     # used to send the command LOCK or UNLOCK to the write lock socket
-    # only usable on mirrored repos during a push operation
+    # only usable on mirrored repos during a push operation via receive_pack
     def self.lock_socket(command)
-      fail Exception, 'Expected WRITE_LOCK_SOCKET to be set in environment' unless ENV['WRITE_LOCK_SOCKET']
       socket = UNIXSocket.new(ENV['WRITE_LOCK_SOCKET'])
       socket.puts command.strip
       socket.flush
       response = socket.gets.to_s.strip
       socket.close
+      if response != "#{command}ED"
+        fail Exception, "Expected #{command}ED confirmation but received: #{response}"
+      end
       response
     end
   end
