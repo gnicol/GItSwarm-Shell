@@ -44,10 +44,10 @@ if repo_path && mirror_url
           socket.close
         end
       end
-    rescue Errno::ENOENT
+    rescue Errno::ENOENT => e
       # the unix_server_loop attempts to clean up the socket file but its unreliable so we also clean it up
-      # just eat the exception that occurs if we beat them to the punch
-      nil
+      # just eat the unlink exception that occurs if we beat them to the punch; re-raise anything else
+      raise e unless e.message =~ /@ unlink/
     end
   end
   thread.abort_on_exception = true
