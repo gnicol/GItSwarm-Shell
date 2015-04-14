@@ -15,33 +15,39 @@ if repo_path && mirror_url
   ENV['WRITE_LOCK_SOCKET'] = lock_socket
   File.unlink(lock_socket) if File.exist?(lock_socket)
   thread = Thread.new do
-    Socket.unix_server_loop(lock_socket) do |socket|
-      begin
-        # just encase an evil do-er connects; only wait 5 seconds for a command don't block forever
-        command = nil
-        Timeout.timeout 5 do
-          command = socket.gets.strip
-        end
+    begin
+      Socket.unix_server_loop(lock_socket) do |socket|
+        begin
+          # just encase an evil do-er connects; only wait 5 seconds for a command don't block forever
+          command = nil
+          Timeout.timeout 5 do
+            command = socket.gets.strip
+          end
 
-        case command
-        when 'LOCK'
-          push_lock = PerforceSwarm::Mirror.write_lock(repo_path)
-        when 'UNLOCK'
-          PerforceSwarm::Mirror.write_unlock(repo_path)
-        else
-          # ignore unknown commands
-          socket.puts 'UNKNOWN'
+          case command
+          when 'LOCK'
+            push_lock = PerforceSwarm::Mirror.write_lock(repo_path)
+          when 'UNLOCK'
+            PerforceSwarm::Mirror.write_unlock(repo_path)
+          else
+            # ignore unknown commands
+            socket.puts 'UNKNOWN'
+            next
+          end
+
+          socket.puts "#{command}ED"
+        rescue Timeout::Error
+          socket.puts 'TIMEOUT'
           next
+        ensure
+          socket.flush
+          socket.close
         end
-
-        socket.puts "#{command}ED"
-      rescue Timeout::Error
-        socket.puts 'TIMEOUT'
-        next
-      ensure
-        socket.flush
-        socket.close
       end
+    rescue Errno::ENOENT
+      # the unix_server_loop attempts to clean up the socket file but its unreliable so we also clean it up
+      # just eat the exception that occurs if we beat them to the punch
+      nil
     end
   end
   thread.abort_on_exception = true
@@ -66,7 +72,7 @@ ensure
   # ensure the thread is shutdown and cleanup our socket
   if repo_path && mirror_url
     thread.kill
-    File.unlink(lock_socket) if File.exist?(lock_socket)
+    FileUtils.safe_unlink(lock_socket)
   end
 
   # note exit status can be nil; we want to default to a failing code in that case
