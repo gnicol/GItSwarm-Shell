@@ -32,5 +32,8 @@ Style/GlobalVars:
 Style/GuardClause:
   Enabled: false
 
+Style/SpaceAroundOperators:
+  Enabled: false
+
 Style/SpecialGlobalVars:
   Enabled: false

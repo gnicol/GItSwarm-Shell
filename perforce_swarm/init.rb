@@ -37,7 +37,7 @@ module PerforceSwarm
 
       # Custom error handling for 400 errors for ssh on /allowed, because GitLab's
       # error handling doesn't make it back to the client properly
-      if response.code == '400' && ENV['SSH_ORIGINAL_COMMAND'] && url =~ /\/allowed$/
+      if response.code == '400' && ENV['SSH_ORIGINAL_COMMAND'] && url =~ %r{/allowed$}
         puts "#{format('%04x', response.body.bytesize + 8)}ERR #{response.body}"
       end
 
