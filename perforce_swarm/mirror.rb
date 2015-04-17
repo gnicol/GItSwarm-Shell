@@ -128,7 +128,7 @@ module PerforceSwarm
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
         wait = mirror.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
-        wait = mirror.gsub(/:([^:]*\/?$)/, ':@wait@\1@' + push_id) if mirror == wait
+        wait = mirror.gsub(%r{:([^:]*/?$)}, ':@wait@\1@' + push_id) if mirror == wait
         if mirror == wait
           puts message = "Unable to add @wait@ to mirror url: #{mirror}"
           fail Exception, message
@@ -146,7 +146,7 @@ module PerforceSwarm
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
           if output =~ /^(?:remote: )?Push \d+ completed successfully/
             yield(mirror) if block_given?
-            return
+            return nil  # the nil makes rubocop happy
           end
 
           # blow up if it looks like the attempt didn't at least try to wait
