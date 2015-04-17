@@ -63,7 +63,7 @@ module PerforceSwarm
 
       # for the non-streamed output, normalize line-endings to \n
       # this makes it much easier to play with them using regex or to log them
-      cmd_output.gsub!(/\r\n\|\r/, "\n")
+      cmd_output.gsub!(/\r\n|\r/, "\n")
 
       [cmd_output, cmd_status]
     end
