@@ -44,6 +44,27 @@ describe PerforceSwarm::Mirror do
     end
   end
 
+  describe :mirror_url do
+    let(:gl_projects_create) do
+      build_gitlab_projects('import-project', repo_name, 'https://github.com/randx/six.git')
+    end
+    let(:gl_mirror_create) do
+      build_gitlab_projects('import-project', "#{repo_name}-mirror", 'https://github.com/randx/six.git')
+    end
+
+    it 'returns false for a non-mirrored repo' do
+      (gl_project = gl_projects_create).exec
+      subject.send(:mirror_url, gl_project.full_path).should be_false
+    end
+
+    it 'returns mirror url for a mirrored repo' do
+      (gl_project = gl_projects_create).exec
+      (gl_mirror = gl_mirror_create).exec
+      add_mirror(gl_project.full_path, gl_mirror.full_path)
+      subject.send(:mirror_url, gl_project.full_path).should == gl_mirror.full_path
+    end
+  end
+
   describe :show_ref do
     let(:gl_projects_create) do
       build_gitlab_projects('import-project', repo_name, 'https://github.com/randx/six.git')
@@ -60,6 +81,11 @@ describe PerforceSwarm::Mirror do
         ref.should =~ /^\h{40} \S+$/
       end
     end
+  end
+
+  def add_mirror(repo_path, mirror_url)
+    cmd = %W(git --git-dir=#{repo_path} remote add mirror #{mirror_url})
+    system(*cmd)
   end
 
   def build_gitlab_projects(*args)
