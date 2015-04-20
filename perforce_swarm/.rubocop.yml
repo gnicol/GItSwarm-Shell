@@ -5,6 +5,9 @@ AllCops:
 Metrics/AbcSize:
   Enabled: false
 
+Metrics/ClassLength:
+  Enabled: false
+
 Metrics/CyclomaticComplexity:
   Enabled: false
 
@@ -27,4 +30,10 @@ Style/GlobalVars:
   AllowedVariables: [$logger]
 
 Style/GuardClause:
+  Enabled: false
+
+Style/SpaceAroundOperators:
+  Enabled: false
+
+Style/SpecialGlobalVars:
   Enabled: false
