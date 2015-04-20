@@ -46,7 +46,7 @@ class GitlabKeys
       # key_id & public_key
       # command=".../bin/gitlab-shell key-741" ... ssh-rsa AAAAB3NzaDAxx2E\n
       #                               ^^^^^^^              ^^^^^^^^^^^^^^^
-      matches = /^command=\".+?\s+(.+?)\".+?ssh-rsa\s(.+)\s*.*\n*$/.match(line)
+      matches = /^command=\".+?\s+(.+?)\".+?(?:ssh|ecdsa)-.*?\s(.+)\s*.*\n*$/.match(line)
       keys << "#{matches[1]} #{matches[2]}\n" unless matches.nil?
     end
     keys
@@ -71,8 +71,12 @@ class GitlabKeys
     $stdin
   end
 
+  def key_command(key_id)
+    "#{ROOT_PATH}/bin/gitlab-shell #{key_id}"
+  end
+
   def key_line(key_id, public_key)
-    auth_line = "command=\"#{ROOT_PATH}/bin/gitlab-shell #{key_id}\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty #{public_key}"
+    auth_line = "command=\"#{key_command(key_id)}\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty #{public_key}"
   end
 
   def rm_key
@@ -81,7 +85,7 @@ class GitlabKeys
       Tempfile.open('authorized_keys') do |temp|
         open(auth_file, 'r+') do |current|
           current.each do |line|
-            temp.puts(line) unless line.include?("/bin/gitlab-shell #{@key_id}\"")
+            temp.puts(line) unless line.start_with?("command=\"#{key_command(@key_id)}\"")
           end
         end
         temp.close

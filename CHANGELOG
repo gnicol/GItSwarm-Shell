@@ -1,3 +1,13 @@
+v2.6.3
+  - Prevent keys with a very specific comment from accidentally being deleted.
+
+v2.6.2
+  - Include ecdsa keys in `gitlab_keys list-keys`.
+  - Refactor logic around GL_ID
+
+v2.6.1
+  - Write errors to stderr to get git to abort and show them as such.
+
 v2.6.0
   - Prevent character encoding issues by sending received changes as raw data.
 
