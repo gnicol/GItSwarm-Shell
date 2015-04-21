@@ -170,6 +170,18 @@ module PerforceSwarm
       # For local locking, ensure we unlock before we exit this method
       write_unlock(repo_path) if locked && !options[:receive_pack]
 
+      # We anticipate a whack of lines for each phase of the progress but we want to trim it to only list the last
+      # last entry for each section. The general vibe of the output is:
+      # Perforce:   5% ( 1/17) Loading commit tree into memory...
+      # *cut for terseness*
+      # Perforce: 100% (17/17) Loading commit tree into memory...
+      # Perforce:   5% ( 1/18) Finding child commits...
+      # *cut for terseness*
+      #
+      # The regex matches the leading portion and captures the section label e.g. 'Finding child commits...' as \1
+      # It scans over more lines with that same title capturing the last one in \2 and setting that to be the block.
+      push_output.gsub!(%r{Perforce: +\d+% +\( *\d+/\d+\) (.*?)\n(.*?\1\n)+}m, '\2')
+
       message = "Push: #{repo_path}\n"
       message += "#{refs * "\n"}\n" if $! # skips refs if an exception occured, they were already logged
       message += "Durations #{durations}\n#{push_output}#{wait_outputs}"
