@@ -11,7 +11,6 @@
 # run against them at the moment.
 
 # Grab global config info
-source config.sh #(bomb_if_bad, log)
 
 function bomb_if_bad {
 	echo "$@" 
@@ -26,13 +25,13 @@ function bomb_if_bad {
 REPO="gitlab-shell"
 REPODIR="${HOME}/integration-ce/${REPO}"
 
-STABLE_TAG="v2.6.1"
+# Set by Jenkins, uncomment and set if you want to run standalone
+# STABLE_TAG=
 
 # Logs
 now=$(date "+%Y-%m-%d-%H%M")
 
 echo "::: ${now} Integrating Community master/stable into ${REPO} :::"
-cd ../.. 
 
 # Update the master, prep, integration-ce and integration-prep-ce
 # branches from origin
