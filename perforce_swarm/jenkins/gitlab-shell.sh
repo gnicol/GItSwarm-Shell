@@ -66,7 +66,7 @@ bomb_if_bad git merge --strategy-option theirs prep -m "Copy-up prep into integr
 # Now merge the Community master into integration-ce
 echo "::: Merging gitlab-shell/master -> integration-ce :::"
 git checkout integration-ce
-bomb_if_bad git merge gitlab-ce/master -m "Merging community into master"
+bomb_if_bad git merge origin/community-master -m "Merging community into master"
 
 # Push integration-ce to origin and push
 git push origin integration-ce
