@@ -13,7 +13,7 @@ describe PerforceSwarm::Mirror do
   end
 
   let(:tmp_repos_path) { File.join(ROOT_PATH, 'tmp', 'repositories') }
-  let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', 'homebrew-test-repo.bundle') }
+  let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', '6-branch-4-tag-repo.bundle') }
   let(:repo_name) { 'gitswarm.git' }
 
   subject do
