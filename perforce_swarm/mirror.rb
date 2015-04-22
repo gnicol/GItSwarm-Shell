@@ -180,7 +180,7 @@ module PerforceSwarm
       #
       # The regex matches the leading portion and captures the section label e.g. 'Finding child commits...' as \1
       # It scans over more lines with that same title capturing the last one in \2 and setting that to be the block.
-      push_output.gsub!(%r{Perforce: +\d+% +\( *\d+/\d+\) (.*?)\n([^\n]+\1\n)+}m, '\2')
+      push_output.gsub!(%r{Perforce: +\d+% +\( *\d+/\d+\) (.*?)\n([^\n]+\1\n)+}m, '\2') if push_output
 
       message = "Push: #{repo_path}\n"
       message += "#{refs * "\n"}\n" if $! # skips refs if an exception occured, they were already logged
