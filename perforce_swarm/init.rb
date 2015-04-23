@@ -8,6 +8,8 @@ module PerforceSwarm
   # push as the last step in the pre-recieve hook
   module GitlabCustomHookExtension
     def pre_receive(changes, repo_path)
+      $logger.debug 'Running PerforceSwarm custom hook pre_receive'
+
       return false unless super
 
       # Transform the changes into an array of pushable ref updates
@@ -24,6 +26,8 @@ module PerforceSwarm
     end
 
     def post_receive(changes, repo_path, options = {})
+      $logger.debug 'Running PerforceSwarm custom hook post_receive'
+
       options = { receive_pack: true }.merge(options)
       # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
       Mirror.lock_socket('UNLOCK') if options[:receive_pack] && Mirror.mirror_url(repo_path)
