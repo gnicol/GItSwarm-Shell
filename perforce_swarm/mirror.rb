@@ -319,6 +319,8 @@ module PerforceSwarm
     def self.write_lock(repo_path, use_socket = false)
       return lock_socket('LOCK') if use_socket
 
+      $logger.debug "Write Locking repo: #{repo_path}"
+
       lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
       @push_locks ||= {}
       @push_locks[lock_file] ||= File.open(lock_file, 'w+', 0644)
@@ -330,10 +332,16 @@ module PerforceSwarm
       return lock_socket('UNLOCK') if use_socket
 
       begin
-        lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
         @push_locks ||= {}
-        @push_locks[lock_file].flock(File::LOCK_UN) if @push_locks[lock_file]
-        @push_locks[lock_file]
+        lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
+        if @push_locks[lock_file]
+          $logger.debug "Write Unlocking repo: #{repo_path}"
+          @push_locks[lock_file].flock(File::LOCK_UN)
+          @push_locks.delete(lock_file)
+        else
+          $logger.debug "Attempted to Write Unlock already unlocked repo: #{repo_path}"
+        end
+        true
       rescue
         return false
       end
