@@ -13,6 +13,7 @@ describe PerforceSwarm::Mirror do
   end
 
   let(:tmp_repos_path) { File.join(ROOT_PATH, 'tmp', 'repositories') }
+  let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', '6-branch-4-tag-repo.bundle') }
   let(:repo_name) { 'gitswarm.git' }
 
   subject do
@@ -21,7 +22,7 @@ describe PerforceSwarm::Mirror do
 
   describe :push do
     let(:gl_projects_create) do
-      build_gitlab_projects('import-project', repo_name, 'https://github.com/randx/six.git')
+      build_gitlab_projects('import-project', repo_name, test_repo_bundle)
     end
 
     it 'should fail when require_block is not set to false, and no block is given' do
@@ -46,10 +47,10 @@ describe PerforceSwarm::Mirror do
 
   describe :mirror_url do
     let(:gl_projects_create) do
-      build_gitlab_projects('import-project', repo_name, 'https://github.com/randx/six.git')
+      build_gitlab_projects('import-project', repo_name, test_repo_bundle)
     end
     let(:gl_mirror_create) do
-      build_gitlab_projects('import-project', "#{repo_name}-mirror", 'https://github.com/randx/six.git')
+      build_gitlab_projects('import-project', "#{repo_name}-mirror", test_repo_bundle)
     end
 
     it 'returns false for a non-mirrored repo' do
@@ -67,7 +68,7 @@ describe PerforceSwarm::Mirror do
 
   describe :show_ref do
     let(:gl_projects_create) do
-      build_gitlab_projects('import-project', repo_name, 'https://github.com/randx/six.git')
+      build_gitlab_projects('import-project', repo_name, test_repo_bundle)
     end
 
     it 'should show valid ref output' do
