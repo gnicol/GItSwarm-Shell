@@ -274,7 +274,7 @@ module PerforceSwarm
       # see if we have a mirror remote; if not, nothing to do
       return false unless mirror_url(repo_path)
 
-      Time.at(File.read('mirror_fetch.last').strip).to_i
+      Time.at(File.read(File.join(repo_path, 'mirror_fetch.last')).strip.to_i)
     rescue
       return false
     end
