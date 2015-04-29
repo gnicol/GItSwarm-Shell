@@ -249,6 +249,7 @@ module PerforceSwarm
                 ENV['GL_ID'] = user
               end
 
+              File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               return true
             rescue Mirror::Exception => e
               # Something went wrong, record the details
@@ -270,6 +271,15 @@ module PerforceSwarm
           push_handle.close
         end
       end
+    end
+
+    def self.last_fetched(repo_path)
+      # see if we have a mirror remote; if not, nothing to do
+      return false unless mirror_url(repo_path)
+
+      Time.at(File.read(File.join(repo_path, 'mirror_fetch.last')).strip.to_i)
+    rescue
+      return false
     end
 
     def self.last_fetch_error(repo_path)
