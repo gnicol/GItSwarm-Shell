@@ -89,8 +89,11 @@ module PerforceSwarm
         end
       end
 
-      # no configured mirror means nutin to do; exit happy!
-      unless mirror
+      # if we are mirroring; filter the involved refs if needed
+      refs = mirror_push_refs(repo_path, refs) if mirror
+
+      # no configured mirror or all refs filtered means nutin to do; exit happy!
+      unless mirror && !refs.to_a.empty?
         yield(mirror) if block_given?
         return
       end
@@ -227,7 +230,7 @@ module PerforceSwarm
               # fetch from the mirror, if that fails then capute failure details
               durations = Durations.new
               durations.start(:fetch)
-              output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+              output, status = popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
               durations.stop
               fail Exception, output unless status.zero?
 
@@ -359,6 +362,25 @@ module PerforceSwarm
         fail Exception, "Expected #{command}ED confirmation but received: #{response}"
       end
       response
+    end
+
+    def self.mirror_push_refs(repo_path, refs)
+      # filter the passed refs to only included items matching at least one of the active ref patterns
+      active = File.readlines(File.join(repo_path, 'mirror_refs.active')).map(&:strip)
+      refs.select! do |ref|
+        active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/[^/]+$)}, 1] || '') }
+      end
+      refs.compact!
+    rescue
+      return refs
+    end
+
+    def self.mirror_fetch_refs(repo_path)
+      File.readlines(File.join(repo_path, 'mirror_refs.active')).map do |ref|
+        "#{ref.strip}:#{ref.strip}"
+      end
+    rescue
+      return 'refs/*:refs/*'
     end
   end
 
