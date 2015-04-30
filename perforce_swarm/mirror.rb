@@ -232,6 +232,7 @@ module PerforceSwarm
               durations.start(:fetch)
               output, status = popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
               durations.stop
+              File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               fail Exception, output unless status.zero?
 
               # Everything went well, clear the error file if present
@@ -249,7 +250,6 @@ module PerforceSwarm
                 ENV['GL_ID'] = user
               end
 
-              File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               return true
             rescue Mirror::Exception => e
               # Something went wrong, record the details
@@ -273,6 +273,8 @@ module PerforceSwarm
       end
     end
 
+    # returns the UNIX timestamp of the last fetched (success or failure) or false if there is
+    # no mirror remote, or there was an error while fetching the timestamp
     def self.last_fetched(repo_path)
       # see if we have a mirror remote; if not, nothing to do
       return false unless mirror_url(repo_path)
