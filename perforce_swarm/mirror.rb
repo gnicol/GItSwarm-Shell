@@ -392,7 +392,7 @@ module PerforceSwarm
         "#{ref.strip}:#{ref.strip}"
       end
     rescue
-      return 'refs/*:refs/*'
+      return ['refs/*:refs/*']
     end
   end
 
