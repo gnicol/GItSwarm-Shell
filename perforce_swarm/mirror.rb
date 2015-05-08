@@ -382,7 +382,7 @@ module PerforceSwarm
       refs.select! do |ref|
         active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/[^/]+$)}, 1] || '') }
       end
-      refs.compact!
+      refs.compact
     rescue
       return refs
     end
