@@ -89,8 +89,11 @@ module PerforceSwarm
         end
       end
 
-      # no configured mirror means nutin to do; exit happy!
-      unless mirror
+      # if we are mirroring; filter the involved refs if needed
+      refs = mirror_push_refs(repo_path, refs) if mirror
+
+      # no configured mirror or all refs filtered means nutin to do; exit happy!
+      unless mirror && !refs.to_a.empty?
         yield(mirror) if block_given?
         return
       end
@@ -227,8 +230,9 @@ module PerforceSwarm
               # fetch from the mirror, if that fails then capute failure details
               durations = Durations.new
               durations.start(:fetch)
-              output, status = popen(%w(git fetch mirror refs/*:refs/*), repo_path)
+              output, status = popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
               durations.stop
+              File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               fail Exception, output unless status.zero?
 
               # Everything went well, clear the error file if present
@@ -267,6 +271,17 @@ module PerforceSwarm
           push_handle.close
         end
       end
+    end
+
+    # returns the UNIX timestamp of the last fetched (success or failure) or false if there is
+    # no mirror remote, or there was an error while fetching the timestamp
+    def self.last_fetched(repo_path)
+      # see if we have a mirror remote; if not, nothing to do
+      return false unless mirror_url(repo_path)
+
+      Time.at(File.read(File.join(repo_path, 'mirror_fetch.last')).strip.to_i)
+    rescue
+      return false
     end
 
     def self.last_fetch_error(repo_path)
@@ -319,6 +334,8 @@ module PerforceSwarm
     def self.write_lock(repo_path, use_socket = false)
       return lock_socket('LOCK') if use_socket
 
+      $logger.debug "Write Locking repo: #{repo_path}"
+
       lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
       @push_locks ||= {}
       @push_locks[lock_file] ||= File.open(lock_file, 'w+', 0644)
@@ -330,10 +347,16 @@ module PerforceSwarm
       return lock_socket('UNLOCK') if use_socket
 
       begin
-        lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
         @push_locks ||= {}
-        @push_locks[lock_file].flock(File::LOCK_UN) if @push_locks[lock_file]
-        @push_locks[lock_file]
+        lock_file = File.join(File.realpath(repo_path), 'mirror_push.lock')
+        if @push_locks[lock_file]
+          $logger.debug "Write Unlocking repo: #{repo_path}"
+          @push_locks[lock_file].flock(File::LOCK_UN)
+          @push_locks.delete(lock_file)
+        else
+          $logger.debug "Attempted to Write Unlock already unlocked repo: #{repo_path}"
+        end
+        true
       rescue
         return false
       end
@@ -351,6 +374,25 @@ module PerforceSwarm
         fail Exception, "Expected #{command}ED confirmation but received: #{response}"
       end
       response
+    end
+
+    def self.mirror_push_refs(repo_path, refs)
+      # filter the passed refs to only included items matching at least one of the active ref patterns
+      active = File.readlines(File.join(repo_path, 'mirror_refs.active')).map(&:strip)
+      refs.select! do |ref|
+        active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/[^/]+$)}, 1] || '') }
+      end
+      refs.compact!
+    rescue
+      return refs
+    end
+
+    def self.mirror_fetch_refs(repo_path)
+      File.readlines(File.join(repo_path, 'mirror_refs.active')).map do |ref|
+        "#{ref.strip}:#{ref.strip}"
+      end
+    rescue
+      return ['refs/*:refs/*']
     end
   end
 
