@@ -380,7 +380,7 @@ module PerforceSwarm
       # filter the passed refs to only included items matching at least one of the active ref patterns
       active = File.readlines(File.join(repo_path, 'mirror_refs.active')).map(&:strip)
       refs.select! do |ref|
-        active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/[^/]+$)}, 1] || '') }
+        active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/.+$)}, 1] || '') }
       end
       refs.compact
     rescue
