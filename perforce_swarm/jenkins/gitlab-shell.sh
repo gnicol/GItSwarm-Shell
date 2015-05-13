@@ -10,7 +10,9 @@
 # the master and prep branches, as we have no tests to
 # run against them at the moment.
 
-# Grab global config info
+# Make sure we use the Ruby version in rbenv
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
 
 function bomb_if_bad {
 	echo "$@" 
@@ -30,8 +32,12 @@ REPODIR="${HOME}/integration-ce/${REPO}"
 
 # Logs
 now=$(date "+%Y-%m-%d-%H%M")
-
+ruby_loc=`which ruby`                                         
+ruby_ver=`ruby -v`                                            
+bundle_loc=`which bundle`   
 echo "::: ${now} Integrating Community master/stable into ${REPO} :::"
+echo "::: Using ${ruby_ver} from ${ruby_loc} :::"
+echo "::: Bundler is at: ${bundle_loc} :::"
 
 # Update the master, prep, integration-ce and integration-prep-ce
 # branches from origin
