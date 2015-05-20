@@ -61,13 +61,13 @@ git rebase origin/integration-prep-ce
 # If this results in a conflict we make a note and exit.
 echo "::: Copy-up master -> integration-ce :::"
 git checkout integration-ce
-bomb_if_bad git merge master -m "Copy-up master into integration-ce"
+bomb_if_bad git merge --strategy-option theirs master -m "Copy-up master into integration-ce"
 
 # Update integration-prep-ce with changes from prep
 # If this results in a conflict we make a note and exit.
 echo "::: Copy-up prep -> integration-prep-ce :::"
 git checkout integration-prep-ce
-bomb_if_bad git merge prep -m "Copy-up prep into integration-prep-ce"
+bomb_if_bad git merge --strategy-option theirs prep -m "Copy-up prep into integration-prep-ce"
 
 # Now merge the Community master into integration-ce
 echo "::: Merging gitlab-shell/master -> integration-ce :::"
