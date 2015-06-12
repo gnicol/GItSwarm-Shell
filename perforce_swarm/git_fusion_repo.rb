@@ -11,7 +11,7 @@ module PerforceSwarm
 
         # add our @list command
         git_fusion_url += ':@list'
-        output, status = GitFusionUtils.popen(['git', 'clone', git_fusion_url])
+        output, _status = GitFusionUtils.popen(['git', 'clone', git_fusion_url])
 
         # parse out the Git Fusion repos
         parse_repos(output)
@@ -32,7 +32,7 @@ module PerforceSwarm
         # iterate over each repo found and build a hash mapping repo name to description
         repos = {}
         output.each do |repo|
-          if /^(?<name>[\w\-]+)\s+(?<perms>push|pull)?\s+(?<encoding>[\w\-]+)\s+(?<description>.+?)$/ =~ repo
+          if /^(?<name>[\w\-]+)\s+(push|pull)?\s+([\w\-]+)\s+(?<description>.+?)$/ =~ repo
             # TODO: do we need to ignore repos where we can't push?
             repos[name] = description
           end

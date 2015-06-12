@@ -88,8 +88,8 @@ module PerforceSwarm
 
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
-          silenced  = false
-          output, _ = GitFusionUtils.popen(['git', 'clone', '--', wait], temp) do |line|
+          silenced        = false
+          output, _status = GitFusionUtils.popen(['git', 'clone', '--', wait], temp) do |line|
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
@@ -257,7 +257,9 @@ module PerforceSwarm
     end
 
     def self.show_ref_updates(old_refs, new_refs)
-      old_refs, new_refs, changes = old_refs.split("\n"), new_refs.split("\n"), {}
+      old_refs = old_refs.split("\n")
+      new_refs = new_refs.split("\n")
+      changes  = {}
 
       # Loop over anything that was modified or deleted, and create a changes entry for it
       # Initially we assume deletes occured, but we will touch them up to be edits later

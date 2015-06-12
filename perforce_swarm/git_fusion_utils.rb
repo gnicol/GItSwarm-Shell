@@ -8,9 +8,9 @@ module PerforceSwarm
           fail 'System commands must be given as an array of strings'
         end
 
-        path ||= Dir.pwd
-        vars = {'PWD' => path}
-        options = {chdir: path}
+        path  ||= Dir.pwd
+        vars    = { 'PWD' => path }
+        options = { chdir: path }
 
         FileUtils.mkdir_p(path) unless File.directory?(path)
 
