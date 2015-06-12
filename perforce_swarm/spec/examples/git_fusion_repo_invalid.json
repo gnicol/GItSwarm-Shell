@@ -1,0 +1,8 @@
+[
+  "khaaaaaaaaaaaan!!",
+  "error: the requested upstream branch 'origin/foobar' does not exist\nhint:\nhint: If you are planning on basing your work on an upstream\n",
+  "Cloning into '@list'...\n",
+  "Cloning into '@list'...\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.",
+  "Cloning into '@info'...\nPerforce - The Fast Software Configuration Management System.\nCopyright 2012-2015 Perforce Software.  All rights reserved.\nfatal: Could not read from remote repository.\n\n",
+  "Cloning into '@khan'...\nGit Fusion: unrecognized special command.\nValid commands are: @info @list @help @features @wait @status @progress\n\nfatal: Could not read from remote repository.\nPlease make sure you have the correct access rights\nand the repository exists."
+]

@@ -1,6 +1,6 @@
-require 'open3'
 require 'socket'
 require 'tmpdir'
+require_relative 'git_fusion_utils'
 require_relative '../lib/gitlab_init'
 require_relative '../lib/gitlab_post_receive'
 require_relative '../lib/gitlab_custom_hook'
@@ -16,57 +16,6 @@ module PerforceSwarm
     # Constant used in ENV[WRITE_LOCK_SOCKET] when there is no
     # socket due to the requested repo not being mirrored
     NOT_MIRRORED = '__NOT_MIRRORED__'
-
-    def self.popen(cmd, path = nil, stream_output = nil)
-      unless cmd.is_a?(Array)
-        fail 'System commands must be given as an array of strings'
-      end
-
-      path  ||= Dir.pwd
-      vars    = { 'PWD' => path }
-      options = { chdir: path }
-
-      FileUtils.mkdir_p(path) unless File.directory?(path)
-
-      cmd_output = ''
-      cmd_status = 0
-      Open3.popen2e(vars, *cmd, options) do |stdin, stdout_and_stderr, wait_thr|
-        # some apps won't fully start till stdin is closed up; we don't use it so close it
-        stdin.close
-
-        # read a line at a time from stdout/stderr and capture/report it as needed
-        # be aware git-fusion uses 0x0D, \r to stack progress output and 0x0A, \n to really line break between hunks.
-        line = ''
-        stdout_and_stderr.each_char do |char|
-          cmd_output << char
-          line       << char
-
-          # if we're not on a newline character just capture into line and continue
-          # note this means the \n in a \r\n sequence gets processed as its own line
-          # we do not however normally expect to encounter \r\n sequences.
-          next unless char == "\n" || char == "\r"
-
-          # strip the remote lead-in and print/yield as needed if the line has content
-          line.gsub!(/^remote: /, '')
-          print line if !line.empty? && stream_output
-          yield line if !line.empty? && block_given?
-          line = ''
-        end
-
-        # if there was data left in line print/yield as needed if the line has content
-        line.gsub!(/^remote: /, '')
-        print line if !line.empty? && stream_output
-        yield line if !line.empty? && block_given?
-
-        cmd_status = wait_thr.value.exitstatus
-      end
-
-      # for the non-streamed output, normalize line-endings to \n
-      # this makes it much easier to play with them using regex or to log them
-      cmd_output.gsub!(/\r\n|\r/, "\n")
-
-      [cmd_output, cmd_status]
-    end
 
     # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
     # note this will echo output from the mirror to stdout so the user can see it
@@ -111,7 +60,7 @@ module PerforceSwarm
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
-      push_output, status = popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
+      push_output, status = GitFusionUtils.popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
       durations.stop(:push)
       fail Exception, push_output unless status.zero?
 
@@ -140,7 +89,7 @@ module PerforceSwarm
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
           silenced  = false
-          output, _ = popen(['git', 'clone', '--', wait], temp) do |line|
+          output, _ = GitFusionUtils.popen(['git', 'clone', '--', wait], temp) do |line|
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
@@ -230,7 +179,7 @@ module PerforceSwarm
               # fetch from the mirror, if that fails then capute failure details
               durations = Durations.new
               durations.start(:fetch)
-              output, status = popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
+              output, status = GitFusionUtils.popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
               durations.stop
               File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               fail Exception, output unless status.zero?
@@ -295,14 +244,14 @@ module PerforceSwarm
     end
 
     def self.mirror_url(repo_path)
-      mirror, status = popen(%w(git config --get remote.mirror.url), repo_path)
+      mirror, status = GitFusionUtils.popen(%w(git config --get remote.mirror.url), repo_path)
       mirror.strip!
       return false unless status.zero? && !mirror.empty?
       mirror
     end
 
     def self.show_ref(repo_path)
-      refs, status = popen(%w(git show-ref --heads --tags), repo_path)
+      refs, status = GitFusionUtils.popen(%w(git show-ref --heads --tags), repo_path)
       fail "git show-ref failed with:\n#{refs}" unless status.zero?
       refs.strip!
     end
