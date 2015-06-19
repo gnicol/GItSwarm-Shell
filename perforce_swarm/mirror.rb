@@ -1,6 +1,6 @@
 require 'socket'
 require 'tmpdir'
-require_relative 'git_fusion_utils'
+require_relative 'utils'
 require_relative '../lib/gitlab_init'
 require_relative '../lib/gitlab_post_receive'
 require_relative '../lib/gitlab_custom_hook'
@@ -60,7 +60,7 @@ module PerforceSwarm
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
-      push_output, status = GitFusionUtils.popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
+      push_output, status = Utils.popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
       durations.stop(:push)
       fail Exception, push_output unless status.zero?
 
@@ -89,7 +89,7 @@ module PerforceSwarm
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
           silenced        = false
-          output, _status = GitFusionUtils.popen(['git', 'clone', '--', wait], temp) do |line|
+          output, _status = Utils.popen(['git', 'clone', '--', wait], temp) do |line|
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
@@ -179,7 +179,7 @@ module PerforceSwarm
               # fetch from the mirror, if that fails then capute failure details
               durations = Durations.new
               durations.start(:fetch)
-              output, status = GitFusionUtils.popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
+              output, status = Utils.popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
               durations.stop
               File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               fail Exception, output unless status.zero?
@@ -244,14 +244,14 @@ module PerforceSwarm
     end
 
     def self.mirror_url(repo_path)
-      mirror, status = GitFusionUtils.popen(%w(git config --get remote.mirror.url), repo_path)
+      mirror, status = Utils.popen(%w(git config --get remote.mirror.url), repo_path)
       mirror.strip!
       return false unless status.zero? && !mirror.empty?
       mirror
     end
 
     def self.show_ref(repo_path)
-      refs, status = GitFusionUtils.popen(%w(git show-ref --heads --tags), repo_path)
+      refs, status = Utils.popen(%w(git show-ref --heads --tags), repo_path)
       fail "git show-ref failed with:\n#{refs}" unless status.zero?
       refs.strip!
     end

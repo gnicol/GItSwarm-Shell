@@ -1,0 +1,7 @@
+[
+  ["Cloning into '@list'...\nTalkhouse push utf8    This is a description\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.", {"Talkhouse": "This is a description"}],
+  ["Cloning into '@list'...\nTalkhouse push utf8    Description for Talkhouse\nRomulus push utf8    Romulus is full of Romulans.\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.", {"Talkhouse": "Description for Talkhouse", "Romulus": "Romulus is full of Romulans."}],
+  ["Cloning into '@list'...\nTalkhouse pull utf8    Talkhouse description!\nRomulus push utf8   How much wood could a woodchuck chuck?\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.", {"Talkhouse": "Talkhouse description!", "Romulus": "How much wood could a woodchuck chuck?"}],
+  ["Cloning into '@list'...\nTalkhouse pull utf8    \nRomulus push utf8   How much wood could a woodchuck chuck?\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.", {"Talkhouse": "", "Romulus": "How much wood could a woodchuck chuck?"}],
+  ["Cloning into '@list'...\nTalkhouse pull utf8    \nRomulus push utf8   \nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.", {"Talkhouse": "", "Romulus": ""}]
+]
