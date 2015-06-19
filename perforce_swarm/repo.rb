@@ -1,18 +1,15 @@
 require 'rubygems'
 require 'json'
 require 'uri'
+require_relative 'git_fusion'
 require_relative 'utils'
 
 module PerforceSwarm
   module GitFusion
     class Repo
       def self.list(git_fusion_url)
-        # validate the git_fusion_url
-        return {} unless GitFusion.valid_url?(git_fusion_url)
-
         # add our @list command
-        git_fusion_url += ':@list'
-        output, _status = Utils.popen(['git', 'clone', git_fusion_url])
+        output, _status = Utils.popen(['git', 'clone', PerforceSwarm::GitFusion.extend_url(git_fusion_url, 'list')])
 
         # parse out the Git Fusion repos
         parse_repos(output)
