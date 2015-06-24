@@ -1,3 +1,5 @@
+require 'uri'
+
 module PerforceSwarm
   module GitFusion
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
@@ -9,7 +11,7 @@ module PerforceSwarm
       VALID_COMMANDS = %w(help info list status wait)
 
       def initialize(url)
-        parsed = URL.parse(url)
+        parsed = parse(url)
 
         fail "Invalid URL specified: #{url}." if parsed.host.nil?
 
@@ -23,7 +25,7 @@ module PerforceSwarm
         end
 
         # turf any leading or trailing slashes, and call it a day if there is no remaining path
-        path = parsed.path.gsub(%r{^\/|\/$}, '')
+        path = parsed.path.gsub(%r{^/|/$}, '')
         return if path.empty?
 
         # parse out pieces of @-syntax, if present
@@ -33,6 +35,43 @@ module PerforceSwarm
           # only repo is specified in this case
           @repo = path
         end
+      end
+
+      def parse(url)
+        # runs regex, swap to named params
+        fail 'No URL provided.' unless url
+
+        # extract the scheme - no scheme/protocol supplied means it's an scp-style git URL
+        %r{^(?<scheme>[A-Za-z]+)://.+$} =~ url
+        fail "Invalid URL scheme specified: #{scheme}." unless scheme.nil? || VALID_SCHEMES.index(scheme)
+
+        # explicitly add the scp protocol and fix up the path spec if it uses a colon (needs to be a slash)
+        unless scheme
+          if %r{^(?<trimmed>([^@]+@)?([^/:]+))(?<delim>[/:])(?<path>.*)$} =~ url
+            @delimiter = delim
+            url        = trimmed + '/' + path
+          else
+            @delimiter = ':'
+          end
+          url = 'scp://' + url
+        end
+
+        # returns a parsed URI object or throws an exception if it's invalid
+        parsed = URI.parse(url)
+        fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
+
+        parsed
+      end
+
+      def self.valid?(url)
+        new(url)
+        true
+      rescue
+        return false
+      end
+
+      def self.valid_command?(command)
+        VALID_COMMANDS.index(command)
       end
 
       def command=(command)
@@ -65,48 +104,21 @@ module PerforceSwarm
 
       def to_s
         # build and put @ and params in the right spots
-        str = url + delimiter    if pathed?
+        str = @url + delimiter    if pathed?
         str += '@' + @command    if @command
+        # TODO: if we only have a repo, don't @-ify it
         str += '@' + @repo       if @repo
+        # TODO: if we only have an extra (no command or repo) then throw
         str += '@' + @extra.to_s if @extra
         str
       end
 
       def delimiter
-        @scheme == 'scp' ? ':' : '/'
+        @delimiter || '/'
       end
 
       def pathed?
         @command || @repo || @extra
-      end
-
-      def self.parse(url)
-        # runs regex, swap to named params
-        fail 'No URL provided.' unless url
-
-        # extract the scheme - no scheme/protocol supplied means it's an scp-style git URL
-        %r{^(?<scheme>[A-Za-z]+)://.+$} =~ url
-        fail "Invalid URL scheme specified: #{scheme}." unless scheme.nil? || VALID_SCHEMES.index(scheme)
-
-        # explicitly add the scp protocol and fix up the path spec if it uses a colon (needs to be a slash)
-        url = 'scp://' + url.sub(':', '/') unless scheme
-
-        # returns a parsed URI object or throws an exception if it's invalid
-        parsed = URI.parse(url)
-        fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
-
-        parsed
-      end
-
-      def self.valid?(url)
-        parse(url)
-        true
-      rescue
-        return false
-      end
-
-      def self.valid_command?(command)
-        VALID_COMMANDS.index(command)
       end
     end
   end
