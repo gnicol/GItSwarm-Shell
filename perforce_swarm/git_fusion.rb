@@ -4,37 +4,14 @@ module PerforceSwarm
   module GitFusion
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
     class URL
-      attr_accessor :url, :extra, :command
+      attr_accessor :url, :extra
       attr_reader :command, :scheme, :repo
 
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
 
       def initialize(url)
-        parsed = parse(url)
-
-        fail "Invalid URL specified: #{url}." if parsed.host.nil?
-
-        # parse out the user/password, host and port (if applicable)
-        @scheme = parsed.scheme
-        if @scheme == 'scp'
-          @url = parsed.user + '@' + parsed.host
-        else
-          host = parsed.host + (parsed.port && parsed.port != parsed.default_port ? ':' + parsed.port.to_s : '')
-          @url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
-        end
-
-        # turf any leading or trailing slashes, and call it a day if there is no remaining path
-        path = parsed.path.gsub(%r{^/|/$}, '')
-        return if path.empty?
-
-        # parse out pieces of @-syntax, if present
-        if path.start_with?('@')
-          @command, @repo, @extra = path.split('@')[1..-1]
-        else
-          # only repo is specified in this case
-          @repo = path
-        end
+        parse(url)
       end
 
       def parse(url)
@@ -56,11 +33,31 @@ module PerforceSwarm
           url = 'scp://' + url
         end
 
-        # returns a parsed URI object or throws an exception if it's invalid
+        # parses a URI object or throws an exception if it's invalid
         parsed = URI.parse(url)
         fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
+        fail "Invalid URL specified: #{url}." if parsed.host.nil?
 
-        parsed
+        # parse out the user/password, host and port (if applicable)
+        @scheme = parsed.scheme
+        if @scheme == 'scp'
+          @url = parsed.user + '@' + parsed.host
+        else
+          host = parsed.host + (parsed.port && parsed.port != parsed.default_port ? ':' + parsed.port.to_s : '')
+          @url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
+        end
+
+        # turf any leading or trailing slashes, and call it a day if there is no remaining path
+        path = parsed.path.gsub(%r{^/|/$}, '')
+        return if path.empty?
+
+        # parse out pieces of @-syntax, if present
+        if path.start_with?('@')
+          @command, @repo, @extra = path[1..-1].split('@', 3)
+        else
+          # only repo is specified in this case
+          @repo = path
+        end
       end
 
       def self.valid?(url)
@@ -103,12 +100,14 @@ module PerforceSwarm
       end
 
       def to_s
+        fail 'Extra requires both command and repo to be specified.' if @extra && (!@command || !@repo)
+
         # build and put @ and params in the right spots
-        str = @url + delimiter    if pathed?
+        str  = @url
+        str += delimiter         if pathed?
         str += '@' + @command    if @command
-        # TODO: if we only have a repo, don't @-ify it
-        str += '@' + @repo       if @repo
-        # TODO: if we only have an extra (no command or repo) then throw
+        str += '@'               if @command && @repo
+        str += @repo             if @repo
         str += '@' + @extra.to_s if @extra
         str
       end

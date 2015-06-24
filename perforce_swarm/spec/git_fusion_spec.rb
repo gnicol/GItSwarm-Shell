@@ -370,6 +370,23 @@ describe PerforceSwarm::GitFusion do
       end
     end
 
+    it 'does not mutate URLs unless you ask nicely' do
+      valid_urls.each do |url|
+        output     = PerforceSwarm::GitFusion::URL.new(url)
+        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
+                       'https://localhost:443/repo' => 'https://localhost/repo'
+                     }
+        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
+      end
+    end
+
+    it 'raises an exception if an extra parameter is given with no command or repo present' do
+      to_test       = PerforceSwarm::GitFusion::URL.new('git@localhost')
+      to_test.extra = 'foo'
+      expect { to_test.to_s }.to raise_error(RuntimeError)
+    end
+
     it 'raises an exception when trying to instantiate a URL object with an invalid base URL' do
       invalid_urls.each do |url|
         expect { PerforceSwarm::GitFusion::URL.new(url) }.to raise_error(Exception), url
