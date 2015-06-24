@@ -8,7 +8,7 @@ module PerforceSwarm
   module GitFusion
     class Repo
       def self.list(git_fusion_url)
-        # add our @list command
+        # run the git fusion @list command
         output, _status = Utils.popen(['git', 'clone', PerforceSwarm::GitFusion.extend_url(git_fusion_url, 'list')])
 
         # parse out the Git Fusion repos

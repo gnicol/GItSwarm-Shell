@@ -1,45 +1,113 @@
 module PerforceSwarm
   module GitFusion
-    def self.valid_url?(url)
-      return false if url.nil?
-      %r{^([\w+\-]+)@([\w\-\.]+)(:(\d+))?(\/[\w-]+)?$} =~ url || url.match(URI.regexp(%w(http https)))
-    end
-
-    def self.valid_command?(command)
-      %w(help info list status wait).index(command)
-    end
-
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
-    def self.extend_url(original, command, repo = false, extra = false)
-      fail 'Invalid URL given to extend' unless valid_url?(original)
-      fail 'Invalid command given to extend' unless valid_command?(command)
+    class URL
+      attr_accessor :url, :extra, :command
+      attr_reader :command, :scheme, :repo
 
-      original.chomp!('/')
-      extended_path = ':@' + command
+      VALID_SCHEMES  = %w(http https ssh)
+      VALID_COMMANDS = %w(help info list status wait)
 
-      if repo
-        parsed_repo = repo(original)
-        fail 'No repository found in git URL' unless parsed_repo && !parsed_repo.empty?
-        extended_path += '@' + parsed_repo
-        original = remove_repo(original)
-      else
-        # remove the repo from the URL, if present
-        original = remove_repo(original)
+      def initialize(url)
+        parsed = URL.parse(url)
+
+        fail "Invalid URL specified: #{url}." if parsed.host.nil?
+
+        # parse out the user/password, host and port (if applicable)
+        @scheme = parsed.scheme
+        if @scheme == 'scp'
+          @url = parsed.user + '@' + parsed.host
+        else
+          host = parsed.host + (parsed.port && parsed.port != parsed.default_port ? ':' + parsed.port.to_s : '')
+          @url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
+        end
+
+        # turf any leading or trailing slashes, and call it a day if there is no remaining path
+        path = parsed.path.gsub(%r{^\/|\/$}, '')
+        return if path.empty?
+
+        # parse out pieces of @-syntax, if present
+        if path.start_with?('@')
+          @command, @repo, @extra = path.split('@')[1..-1]
+        else
+          # only repo is specified in this case
+          @repo = path
+        end
       end
 
-      extended_path += '@' + extra if extra
-      original + extended_path
-    end
+      def command=(command)
+        fail "Unknown command: #{command}" unless URL.valid_command?(command)
+        @command = command
+      end
 
-    def self.repo(url)
-      url  = url.gsub('://', '')
-      repo = url.index('/') ? url.gsub('://', '').slice((url.index('/') + 1)..-1) : nil
-      repo.nil? || repo.empty? ? nil : repo
-    end
+      def repo=(repo)
+        if repo.is_a? String
+          # set the repo to the string given
+          @repo = repo
+        elsif repo
+          # repo is true, throw if we didn't parse a repo from the original URL
+          fail 'Repo expected but none given.' unless @repo
+        else
+          # repo is false, so remove whatever we parsed from the original repo
+          @repo = nil
+        end
+      end
 
-    def self.remove_repo(url)
-      repo = repo(url)
-      repo.nil? ? url.chomp('/') : url.slice(0, url.index('/' + repo))
+      def clear_path
+        @repo = nil
+        clear_command
+      end
+
+      def clear_command
+        @command = nil
+        @extra   = nil
+      end
+
+      def to_s
+        # build and put @ and params in the right spots
+        str = url + delimiter    if pathed?
+        str += '@' + @command    if @command
+        str += '@' + @repo       if @repo
+        str += '@' + @extra.to_s if @extra
+        str
+      end
+
+      def delimiter
+        @scheme == 'scp' ? ':' : '/'
+      end
+
+      def pathed?
+        @command || @repo || @extra
+      end
+
+      def self.parse(url)
+        # runs regex, swap to named params
+        fail 'No URL provided.' unless url
+
+        # extract the scheme - no scheme/protocol supplied means it's an scp-style git URL
+        %r{^(?<scheme>[A-Za-z]+)://.+$} =~ url
+        fail "Invalid URL scheme specified: #{scheme}." unless scheme.nil? || VALID_SCHEMES.index(scheme)
+
+        # explicitly add the scp protocol and fix up the path spec if it uses a colon (needs to be a slash)
+        url = 'scp://' + url.sub(':', '/') unless scheme
+
+        # returns a parsed URI object or throws an exception if it's invalid
+        parsed = URI.parse(url)
+        fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
+
+        parsed
+      end
+
+      def self.valid?(url)
+        parse(url)
+        true
+      rescue
+        return false
+      end
+
+      def self.valid_command?(command)
+        VALID_COMMANDS.index(command)
+      end
     end
   end
 end
