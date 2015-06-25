@@ -138,8 +138,20 @@ describe PerforceSwarm::GitFusion do
     end
 
     it 'returns false for invalid commands' do
-      ['sit', 'down', 'stay', 'play dead', '!list', '!*!**', '@list', nil, ''].each do |command|
-        expect(PerforceSwarm::GitFusion::URL.valid_command?(command)).to be_false, command
+      ['sit', 'down', 'stay', 'play dead', '!list', '!*!**', '@list', '', nil, false].each do |command|
+        expect(PerforceSwarm::GitFusion::URL.valid_command?(command)).to be_false, command.inspect
+      end
+    end
+
+    it 'raises an exception for invalid commands specified in a url' do
+      ['sit', 'down', 'stay', 'play dead', '!list', '!*!**', '@list'].each do |command|
+        expect do
+          PerforceSwarm::GitFusion::URL.new("user@host:@#{command}")
+        end.to raise_error(RuntimeError), command.inspect
+
+        expect do
+          PerforceSwarm::GitFusion::URL.new("user@host:@#{command}@repoid")
+        end.to raise_error(RuntimeError), command.inspect
       end
     end
   end
@@ -176,6 +188,14 @@ describe PerforceSwarm::GitFusion do
       end
     end
 
+    it 'can be called multiple times and still give expected results' do
+      valid_repo_tests.each do |url, repo|
+        to_test = PerforceSwarm::GitFusion::URL.new('user@host')
+        to_test.parse(url)
+        expect(to_test.repo).to eq(repo), "#{url} => #{repo} GOT " + to_test.repo.to_s
+      end
+    end
+
     it 'overrides the initial repo setting with a new one if it is a string' do
       examples = [%w(git@localhost:repo new-repo),
                   %w(git@127.0.0.1:repo new-repo),
@@ -194,37 +214,45 @@ describe PerforceSwarm::GitFusion do
   end
 
   describe :url do
+    expected = { 'git@127.0.0.1/repo' => 'git@127.0.0.1',
+                 'user@localhost/differentrepo' => 'user@localhost',
+                 'git@localhost:ssh-repo' => 'git@localhost',
+                 'git@localhost:@wait@ssh-repo@12' => 'git@localhost',
+                 'git@localhost:@wait@ssh-repo.git@12' => 'git@localhost',
+                 'git@localhost:@status@ssh-repo' => 'git@localhost',
+                 'ssh://127.0.0.1/repo' => 'ssh://127.0.0.1',
+                 'ssh://user@localhost/differentrepo' => 'ssh://user@localhost',
+                 'ssh://localhost:22/ssh-repo' => 'ssh://localhost:22',
+                 'ssh://localhost:22/' => 'ssh://localhost:22',
+                 'ssh://localhost:22' => 'ssh://localhost:22',
+                 'ssh://localhost/@wait@ssh-repo@12' => 'ssh://localhost',
+                 'ssh://localhost/@status@ssh-repo' => 'ssh://localhost',
+                 'http://127.0.0.1/repo' => 'http://127.0.0.1',
+                 'http://user@localhost/differentrepo' => 'http://user@localhost',
+                 'http://localhost:22/ssh-repo' => 'http://localhost:22',
+                 'http://localhost:22/' => 'http://localhost:22',
+                 'http://localhost:22' => 'http://localhost:22',
+                 'http://localhost/@wait@ssh-repo@12' => 'http://localhost',
+                 'http://localhost/@status@ssh-repo' => 'http://localhost',
+                 'https://127.0.0.1/repo' => 'https://127.0.0.1',
+                 'https://user@localhost/differentrepo' => 'https://user@localhost',
+                 'https://localhost:22/ssh-repo' => 'https://localhost:22',
+                 'https://localhost:22/' => 'https://localhost:22',
+                 'https://localhost:22' => 'https://localhost:22',
+                 'https://localhost/@wait@ssh-repo@12' => 'https://localhost',
+                 'https://localhost/@status@ssh-repo' => 'https://localhost'
+    }
     it 'returns the scheme, user, password and host portions of the URL only' do
-      expected = { 'git@127.0.0.1/repo' => 'git@127.0.0.1',
-                   'user@localhost/differentrepo' => 'user@localhost',
-                   'git@localhost:ssh-repo' => 'git@localhost',
-                   'git@localhost:@wait@ssh-repo@12' => 'git@localhost',
-                   'git@localhost:@wait@ssh-repo.git@12' => 'git@localhost',
-                   'git@localhost:@status@ssh-repo' => 'git@localhost',
-                   'ssh://127.0.0.1/repo' => 'ssh://127.0.0.1',
-                   'ssh://user@localhost/differentrepo' => 'ssh://user@localhost',
-                   'ssh://localhost:22/ssh-repo' => 'ssh://localhost:22',
-                   'ssh://localhost:22/' => 'ssh://localhost:22',
-                   'ssh://localhost:22' => 'ssh://localhost:22',
-                   'ssh://localhost/@wait@ssh-repo@12' => 'ssh://localhost',
-                   'ssh://localhost/@status@ssh-repo' => 'ssh://localhost',
-                   'http://127.0.0.1/repo' => 'http://127.0.0.1',
-                   'http://user@localhost/differentrepo' => 'http://user@localhost',
-                   'http://localhost:22/ssh-repo' => 'http://localhost:22',
-                   'http://localhost:22/' => 'http://localhost:22',
-                   'http://localhost:22' => 'http://localhost:22',
-                   'http://localhost/@wait@ssh-repo@12' => 'http://localhost',
-                   'http://localhost/@status@ssh-repo' => 'http://localhost',
-                   'https://127.0.0.1/repo' => 'https://127.0.0.1',
-                   'https://user@localhost/differentrepo' => 'https://user@localhost',
-                   'https://localhost:22/ssh-repo' => 'https://localhost:22',
-                   'https://localhost:22/' => 'https://localhost:22',
-                   'https://localhost:22' => 'https://localhost:22',
-                   'https://localhost/@wait@ssh-repo@12' => 'https://localhost',
-                   'https://localhost/@status@ssh-repo' => 'https://localhost'
-      }
       expected.each do |url, repoless|
         to_test = PerforceSwarm::GitFusion::URL.new(url)
+        expect(to_test.url).to eq(repoless), to_test.url + " => #{repoless}"
+      end
+    end
+
+    it 'can be called multiple times and produce expected results' do
+      expected.each do |url, repoless|
+        to_test = PerforceSwarm::GitFusion::URL.new('user@host')
+        to_test.parse(url)
         expect(to_test.url).to eq(repoless), to_test.url + " => #{repoless}"
       end
     end
@@ -381,6 +409,18 @@ describe PerforceSwarm::GitFusion do
       end
     end
 
+    it 'can be called several times and produce expected results' do
+      valid_urls.each do |url|
+        output     = PerforceSwarm::GitFusion::URL.new('user@host')
+        output.parse(url)
+        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
+                       'https://localhost:443/repo' => 'https://localhost/repo'
+        }
+        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
+      end
+    end
+
     it 'raises an exception if an extra parameter is given with no command or repo present' do
       to_test       = PerforceSwarm::GitFusion::URL.new('git@localhost')
       to_test.extra = 'foo'
@@ -395,9 +435,7 @@ describe PerforceSwarm::GitFusion do
 
     it 'raises an exception when trying to extend with an invalid or unknown command' do
       to_test = PerforceSwarm::GitFusion::URL.new('git@localhost')
-      expect { to_test.command = nil }.to raise_error(RuntimeError)
       expect { to_test.command = '' }.to raise_error(RuntimeError)
-      expect { to_test.command = false }.to raise_error(RuntimeError)
       expect { to_test.command = 'sit' }.to raise_error(RuntimeError)
       expect { to_test.command = 'learn kung fu' }.to raise_error(RuntimeError)
     end

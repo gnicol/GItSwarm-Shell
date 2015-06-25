@@ -7,8 +7,8 @@ module PerforceSwarm
         fail 'System commands must be given as an array of strings'
       end
 
-      path ||= Dir.pwd
-      vars = { 'PWD' => path }
+      path  ||= Dir.pwd
+      vars    = { 'PWD' => path, 'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=yes' }
       options = { chdir: path }
 
       FileUtils.mkdir_p(path) unless File.directory?(path)
