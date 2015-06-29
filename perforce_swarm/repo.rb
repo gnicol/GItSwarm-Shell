@@ -25,11 +25,6 @@ module PerforceSwarm
         nil
       end
 
-      # returns the message from the last error received, or nil if no errors were found
-      def self.error
-        @error
-      end
-
       def self.parse_repos(git_output)
         repos = {}
         return repos unless git_output
