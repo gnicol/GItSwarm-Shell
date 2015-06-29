@@ -12,8 +12,8 @@ module PerforceSwarm
       # returns a hash mapping repo name to description for all repos defined at the configured (or specified)
       # base URL. returns nil if something went wrong - check the 'error' method if you want details
       def self.list(url = nil)
-        url  ||= GitlabConfig.new.fusion_url
-        @error = nil
+        url    ||= GitlabConfig.new.git_fusion['url']
+        @error   = nil
 
         # run the git fusion @list command
         output = PerforceSwarm::GitFusion::URL.new(url).clear_path.command('list').run
