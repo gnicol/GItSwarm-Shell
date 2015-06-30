@@ -15,7 +15,7 @@ module PerforceSwarm
       @error   = nil
 
       # run the git fusion @list command
-      output = PerforceSwarm::GitFusion::URL.new(url).clear_path.command('list').run
+      output = PerforceSwarm::GitFusion::URL.new(url, true).clear_path.command('list').run
 
       # parse the Git Fusion repos
       return parse_repos(output)
