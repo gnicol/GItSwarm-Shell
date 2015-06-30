@@ -1,3 +1,4 @@
+require_relative 'config'
 require_relative 'mirror'
 require_relative '../lib/gitlab_custom_hook'
 require_relative '../lib/gitlab_shell'
