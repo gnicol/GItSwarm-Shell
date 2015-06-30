@@ -112,6 +112,10 @@ describe PerforceSwarm::GitFusion do
                        'https://localhost/@wait@ssh-repo@12' => 'ssh-repo',
                        'https://localhost/@status@ssh-repo' => 'ssh-repo'
   }
+  exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
+                 'https://localhost:443/repo' => 'https://localhost/repo'
+
+  }
 
   describe :valid_url? do
     it 'returns true on valid git fusion urls' do
@@ -209,6 +213,19 @@ describe PerforceSwarm::GitFusion do
         to_test = PerforceSwarm::GitFusion::URL.new(url)
         to_test.repo = new_repo
         expect(to_test.repo).to eq(new_repo)
+      end
+    end
+  end
+
+  describe :parse do
+    it 'strips passwords from the URL when asked' do
+      valid_urls.each do |url|
+        # leave password in for initialization
+        output    = PerforceSwarm::GitFusion::URL.new(url, false)
+        # remove password by re-parsing the URL
+        output.parse(url, true)
+        expected  = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expect(output.to_s).to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
   end
@@ -400,12 +417,17 @@ describe PerforceSwarm::GitFusion do
 
     it 'does not mutate URLs unless you ask nicely' do
       valid_urls.each do |url|
-        output     = PerforceSwarm::GitFusion::URL.new(url)
-        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
-                       'https://localhost:443/repo' => 'https://localhost/repo'
-                     }
-        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        output   = PerforceSwarm::GitFusion::URL.new(url)
+        expected = exceptions[url] || url.gsub(%r{/$}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
+      end
+    end
+
+    it 'strips the password from the URL if asked to' do
+      valid_urls.each do |url|
+        output   = PerforceSwarm::GitFusion::URL.new(url, true)
+        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expect(output.to_s).to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
 
@@ -413,9 +435,6 @@ describe PerforceSwarm::GitFusion do
       valid_urls.each do |url|
         output     = PerforceSwarm::GitFusion::URL.new('user@host')
         output.parse(url)
-        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
-                       'https://localhost:443/repo' => 'https://localhost/repo'
-        }
         expected   = exceptions[url] || url.gsub(%r{/$}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end

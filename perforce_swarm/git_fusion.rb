@@ -13,8 +13,8 @@ module PerforceSwarm
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
 
-      def initialize(url)
-        parse(url)
+      def initialize(url, strip_password = false)
+        parse(url, strip_password)
       end
 
       def run(stream_output = nil, &block)
@@ -39,7 +39,7 @@ module PerforceSwarm
       #  * an invalid scheme is provided (http, https and ssh are supported)
       #  * missing a username in scp-style urls (e.g. user@host)
       #  * the URL is otherwise invalid, as determined by ruby's URI.parse method
-      def parse(url)
+      def parse(url, strip_password = false)
         # reset the stored delimiter, command, repo and extra before parsing, in case we're being called multiple times
         self.delimiter = nil
         self.command   = nil
@@ -74,7 +74,12 @@ module PerforceSwarm
           self.url = parsed.user + '@' + parsed.host
         else
           host     = parsed.host + (parsed.port && parsed.port != parsed.default_port ? ':' + parsed.port.to_s : '')
-          self.url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
+          if strip_password
+            # we only hang on to the username
+            self.url = parsed.scheme + '://' + (parsed.user ? parsed.user + '@' : '') + host
+          else
+            self.url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
+          end
         end
 
         # turf any leading or trailing slashes, and call it a day if there is no remaining path
