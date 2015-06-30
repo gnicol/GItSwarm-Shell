@@ -8,7 +8,7 @@ module PerforceSwarm
       end
 
       path  ||= Dir.pwd
-      vars    = { 'PWD' => path, 'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=yes' }
+      vars    = { 'PWD' => path, 'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=yes', 'GIT_TERMINAL_PROMPT' => '0' }
       options = { chdir: path }
 
       FileUtils.mkdir_p(path) unless File.directory?(path)
