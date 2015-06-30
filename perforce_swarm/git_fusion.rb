@@ -22,7 +22,16 @@ module PerforceSwarm
         Dir.mktmpdir do |temp|
           silenced = false
           output   = ''
-          Utils.popen(['git', '-c', 'core.askpass=true', 'clone', '--', to_s], temp) do |line|
+          command  = ['git',
+                      '-c',
+                      'core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password'),
+                      '-c',
+                      'http.sslVerify=false',
+                      'clone',
+                      '--',
+                      to_s
+                     ]
+          Utils.popen(command, temp) do |line|
             silenced ||= line =~ /^fatal: /
             next if line =~ /^Cloning into/ || silenced
             output += line
