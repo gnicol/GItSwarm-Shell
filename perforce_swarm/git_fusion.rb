@@ -19,7 +19,7 @@ module PerforceSwarm
         config ||= PerforceSwarm::GitlabConfig.new.git_fusion_config_block(id)
         parse(config['url'])
         self.git_config_params = config['git_config_params']
-        @password              = config['password'] || nil
+        @password            ||= config['password']
         @strip_password        = true
       end
 
