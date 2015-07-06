@@ -78,6 +78,15 @@ eos
       end
     end
 
+    context 'block contains no URL' do
+      before do
+        config.instance_variable_set(:@config, git_fusion: { foo: 'bar' })
+      end
+      it 'raises an exception if a config block does not at least have a URL' do
+        expect { config.git_fusion_config_block }.to raise_error(RuntimeError), config.inspect
+      end
+    end
+
     context 'no git_fusion block' do
       before do
         config.instance_variable_set(:@config, {})

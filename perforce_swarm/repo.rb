@@ -13,12 +13,8 @@ module PerforceSwarm
     def self.list(id = nil)
       @error   = nil
 
-      # run the git fusion @list command: provide helper script for the password
-      config = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password')]
-      output = PerforceSwarm::GitFusion::URL.new(id: id).clear_path.append_git_config_params(config).command('list').run
-
       # parse the Git Fusion repos
-      return parse_repos(output)
+      return parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
     rescue StandardError => e
       @error = e.message
       nil

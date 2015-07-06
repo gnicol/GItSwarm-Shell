@@ -5,6 +5,30 @@ require_relative 'utils'
 
 module PerforceSwarm
   module GitFusion
+    def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
+      fail 'run requires a command' unless command
+      config = PerforceSwarm::GitlabConfig.new.git_fusion_config_block(id)
+      url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
+      git_config_params  =
+          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']]
+      git_config_params += [*config['git_config_params']].flat_map { |value| ['-c', value] if value }.compact
+      Dir.mktmpdir do |temp|
+        silenced     = false
+        output       = ''
+        cmd  = ['git']
+        cmd += git_config_params if git_config_params
+        cmd += ['clone', '--', url.to_s]
+        Utils.popen(cmd, temp) do |line|
+          silenced ||= line =~ /^fatal: /
+          next if line =~ /^Cloning into/ || silenced
+          output += line
+          print line       if stream_output
+          block.call(line) if block
+        end
+        return output.chomp
+      end
+    end
+
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
     class URL
       attr_accessor :url, :delimiter
@@ -14,32 +38,9 @@ module PerforceSwarm
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
 
-      def initialize(id: nil, config: nil)
-        # load Git Fusion config elements
-        config ||= PerforceSwarm::GitlabConfig.new.git_fusion_config_block(id)
-        parse(config['url'])
-        self.git_config_params = config['git_config_params']
-        @password            ||= config['password']
-        @strip_password        = true
-      end
-
-      def run(stream_output = nil, &block)
-        fail 'run requires a command' unless command
-        Dir.mktmpdir do |temp|
-          silenced = false
-          output   = ''
-          command  = ['git']
-          command += git_config_params.flat_map { |value| ['-c', value] } if git_config_params
-          command += ['clone', '--', to_s]
-          Utils.popen(command, temp) do |line|
-            silenced ||= line =~ /^fatal: /
-            next if line =~ /^Cloning into/ || silenced
-            output += line
-            print line       if stream_output
-            block.call(line) if block
-          end
-          return output.chomp
-        end
+      def initialize(url)
+        parse(url)
+        @strip_password = true
       end
 
       # parses the given URL, and sets instance variables for base url (without path), command, repo
@@ -83,7 +84,8 @@ module PerforceSwarm
         if @scheme == 'scp'
           self.url = parsed.user + '@' + parsed.host
         else
-          self.url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          @password = parsed.password
         end
 
         # turf any leading or trailing slashes, and call it a day if there is no remaining path
@@ -105,9 +107,9 @@ module PerforceSwarm
       end
 
       def self.valid?(url)
-        new(config: { 'url' => url })
+        new(url)
         true
-      rescue StandardError
+      rescue
         return false
       end
 
@@ -165,35 +167,6 @@ module PerforceSwarm
         @strip_password
       end
 
-      def append_git_config_params(params)
-        return self unless params
-
-        if params.is_a?(String)
-          @git_config_params.push(params)
-        else
-          @git_config_params += params
-        end
-        self
-      end
-
-      def git_config_params=(params)
-        @git_config_params = [] && return unless params
-
-        if params.is_a?(String)
-          @git_config_params = [params]
-        else
-          @git_config_params = params
-        end
-      end
-
-      def git_config_params(*args)
-        if args.length > 0
-          self.git_config_params = args[0]
-          return self
-        end
-        @git_config_params
-      end
-
       def clear_path
         self.repo = nil
         clear_command
@@ -218,7 +191,7 @@ module PerforceSwarm
           parsed = URI.parse(url)
           str    = parsed.scheme + '://' + (parsed.user ? parsed.user + '@' : '') + host(parsed)
         else
-          str  = url
+          str = url
         end
 
         # build and put @ and params in the right spots
