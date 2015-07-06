@@ -150,11 +150,11 @@ describe PerforceSwarm::GitFusion do
     it 'raises an exception for invalid commands specified in a url' do
       ['sit', 'down', 'stay', 'play dead', '!list', '!*!**', '@list'].each do |command|
         expect do
-          PerforceSwarm::GitFusion::URL.new("user@host:@#{command}")
+          PerforceSwarm::GitFusion::URL.new(config: { 'url' => "user@host:@#{command}" })
         end.to raise_error(RuntimeError), command.inspect
 
         expect do
-          PerforceSwarm::GitFusion::URL.new("user@host:@#{command}@repoid")
+          PerforceSwarm::GitFusion::URL.new(config: { 'url' => "user@host:@#{command}@repoid" })
         end.to raise_error(RuntimeError), command.inspect
       end
     end
@@ -163,7 +163,7 @@ describe PerforceSwarm::GitFusion do
   describe :clear_path do
     it 'deletes the current command, repo and extra settings' do
       valid_urls.each do |url|
-        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         to_test.clear_path
         expect(to_test.command).to be_false
         expect(to_test.repo).to be_false
@@ -175,7 +175,7 @@ describe PerforceSwarm::GitFusion do
   describe :clear_command do
     it 'deletes the current command and extra settings' do
       valid_repo_tests.each do |url, repo|
-        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         to_test.clear_command
         expect(to_test.command).to be_false
         expect(to_test.extra).to be_false
@@ -187,14 +187,14 @@ describe PerforceSwarm::GitFusion do
   describe :repo do
     it 'returns the repo for git fusion urls containing a repo, nil if they don\'t' do
       valid_repo_tests.each do |url, repo|
-        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         expect(to_test.repo).to eq(repo), "#{url} => #{repo} GOT " + to_test.repo.to_s
       end
     end
 
     it 'can be called multiple times and still give expected results' do
       valid_repo_tests.each do |url, repo|
-        to_test = PerforceSwarm::GitFusion::URL.new('user@host')
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => 'user@host' })
         to_test.parse(url)
         expect(to_test.repo).to eq(repo), "#{url} => #{repo} GOT " + to_test.repo.to_s
       end
@@ -210,7 +210,7 @@ describe PerforceSwarm::GitFusion do
                  ]
       examples.each do |example|
         url, new_repo = example
-        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         to_test.repo = new_repo
         expect(to_test.repo).to eq(new_repo)
       end
@@ -220,12 +220,10 @@ describe PerforceSwarm::GitFusion do
   describe :parse do
     it 'strips passwords from the URL when asked' do
       valid_urls.each do |url|
-        # leave password in for initialization
-        output    = PerforceSwarm::GitFusion::URL.new(url, false)
-        # remove password by re-parsing the URL
-        output.parse(url, true)
-        expected  = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
-        expect(output.to_s).to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
+        output   = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
+        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expect(output.strip_password(true).to_s).to eq(expected),
+                                                    "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
   end
@@ -261,14 +259,14 @@ describe PerforceSwarm::GitFusion do
     }
     it 'returns the scheme, user, password and host portions of the URL only' do
       expected.each do |url, repoless|
-        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         expect(to_test.url).to eq(repoless), to_test.url + " => #{repoless}"
       end
     end
 
     it 'can be called multiple times and produce expected results' do
       expected.each do |url, repoless|
-        to_test = PerforceSwarm::GitFusion::URL.new('user@host')
+        to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => 'user@host' })
         to_test.parse(url)
         expect(to_test.url).to eq(repoless), to_test.url + " => #{repoless}"
       end
@@ -374,25 +372,25 @@ describe PerforceSwarm::GitFusion do
                    ['https://foo@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
                       'https://foo@127.0.0.1:8080/@status@repo@0123456789',
                    ['https://foo@localhost:8080', 'list', false, false] => 'https://foo@localhost:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080', 'list', false, false] => 'http://foo:pass@127.0.0.1:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'list', false, false] => 'http://foo:pass@127.0.0.1:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'status', false, false] => 'http://foo:pass@127.0.0.1:8080/@status',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, false] => 'http://foo:pass@127.0.0.1:8080/@wait@repo',
-                   ['http://foo:pass@127.0.0.1:8080/repo-name', 'wait', true, false] => 'http://foo:pass@127.0.0.1:8080/@wait@repo-name',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, 12] => 'http://foo:pass@127.0.0.1:8080/@wait@repo@12',
+                   ['http://foo:pass@127.0.0.1:8080', 'list', false, false] => 'http://foo@127.0.0.1:8080/@list',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'list', false, false] => 'http://foo@127.0.0.1:8080/@list',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'status', false, false] => 'http://foo@127.0.0.1:8080/@status',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, false] => 'http://foo@127.0.0.1:8080/@wait@repo',
+                   ['http://foo:pass@127.0.0.1:8080/repo-name', 'wait', true, false] => 'http://foo@127.0.0.1:8080/@wait@repo-name',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, 12] => 'http://foo@127.0.0.1:8080/@wait@repo@12',
                    ['http://foo:pass@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
-                      'http://foo:pass@127.0.0.1:8080/@status@repo@0123456789',
-                   ['http://foo:pass@localhost:8080', 'list', false, false] => 'http://foo:pass@localhost:8080/@list',
-                   ['http://foo:pass@localhost:8080/repo', 'list', false, false] => 'http://foo:pass@localhost:8080/@list',
-                   ['http://foo:pass@localhost:8080/repo', 'status', false, false] => 'http://foo:pass@localhost:8080/@status',
-                   ['http://foo:pass@localhost:8080/repo', 'wait', true, false] => 'http://foo:pass@localhost:8080/@wait@repo',
-                   ['http://foo:pass@localhost:8080/repo-name', 'wait', true, false] => 'http://foo:pass@localhost:8080/@wait@repo-name',
-                   ['http://foo:pass@localhost:8080/repo', 'wait', true, 12] => 'http://foo:pass@localhost:8080/@wait@repo@12',
+                      'http://foo@127.0.0.1:8080/@status@repo@0123456789',
+                   ['http://foo:pass@localhost:8080', 'list', false, false] => 'http://foo@localhost:8080/@list',
+                   ['http://foo:pass@localhost:8080/repo', 'list', false, false] => 'http://foo@localhost:8080/@list',
+                   ['http://foo:pass@localhost:8080/repo', 'status', false, false] => 'http://foo@localhost:8080/@status',
+                   ['http://foo:pass@localhost:8080/repo', 'wait', true, false] => 'http://foo@localhost:8080/@wait@repo',
+                   ['http://foo:pass@localhost:8080/repo-name', 'wait', true, false] => 'http://foo@localhost:8080/@wait@repo-name',
+                   ['http://foo:pass@localhost:8080/repo', 'wait', true, 12] => 'http://foo@localhost:8080/@wait@repo@12',
                    ['http://foo:pass@localhost:8080/repo', 'status', true, '0123456789'] =>
-                      'http://foo:pass@localhost:8080/@status@repo@0123456789',
-                   ['https://foo:pass@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
-                      'https://foo:pass@127.0.0.1:8080/@status@repo@0123456789',
-                   ['https://foo:pass@localhost:8080', 'list', false, false] => 'https://foo:pass@localhost:8080/@list',
+                      'http://foo@localhost:8080/@status@repo@0123456789',
+                   ['https://foo@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
+                      'https://foo@127.0.0.1:8080/@status@repo@0123456789',
+                   ['https://foo:pass@localhost:8080', 'list', false, false] => 'https://foo@localhost:8080/@list',
                    ['ssh://localhost:8080', 'list', false, false] => 'ssh://localhost:8080/@list',
                    ['ssh://localhost:8080/repo', 'list', false, false] => 'ssh://localhost:8080/@list',
                    ['ssh://localhost:8080/repo', 'status', false, false] => 'ssh://localhost:8080/@status',
@@ -407,7 +405,7 @@ describe PerforceSwarm::GitFusion do
       }
       expected.each do |args, result|
         url, command, repo, extra = args
-        parsed = PerforceSwarm::GitFusion::URL.new(url)
+        parsed = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         parsed.command = command
         parsed.repo = repo
         parsed.extra = extra
@@ -417,43 +415,44 @@ describe PerforceSwarm::GitFusion do
 
     it 'does not mutate URLs unless you ask nicely' do
       valid_urls.each do |url|
-        output   = PerforceSwarm::GitFusion::URL.new(url)
-        expected = exceptions[url] || url.gsub(%r{/$}, '')
+        output   = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
+        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end
     end
 
-    it 'strips the password from the URL if asked to' do
+    it 'does not strip the password from the URL if set to false' do
       valid_urls.each do |url|
-        output   = PerforceSwarm::GitFusion::URL.new(url, true)
-        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
-        expect(output.to_s).to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
+        output   = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
+        expected = exceptions[url] || url.gsub(%r{/$}, '')
+        expect(output.strip_password(false).to_s)
+          .to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
 
     it 'can be called several times and produce expected results' do
       valid_urls.each do |url|
-        output     = PerforceSwarm::GitFusion::URL.new('user@host')
+        output     = PerforceSwarm::GitFusion::URL.new(config: { 'url' => 'user@host' })
         output.parse(url)
-        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        expected   = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end
     end
 
     it 'raises an exception if an extra parameter is given with no command or repo present' do
-      to_test       = PerforceSwarm::GitFusion::URL.new('git@localhost')
+      to_test       = PerforceSwarm::GitFusion::URL.new(config: { 'url' => 'git@localhost' })
       to_test.extra = 'foo'
       expect { to_test.to_s }.to raise_error(RuntimeError)
     end
 
     it 'raises an exception when trying to instantiate a URL object with an invalid base URL' do
       invalid_urls.each do |url|
-        expect { PerforceSwarm::GitFusion::URL.new(url) }.to raise_error(Exception), url
+        expect { PerforceSwarm::GitFusion::URL.new(config: { 'url' => url }) }.to raise_error(Exception), url
       end
     end
 
     it 'raises an exception when trying to extend with an invalid or unknown command' do
-      to_test = PerforceSwarm::GitFusion::URL.new('git@localhost')
+      to_test = PerforceSwarm::GitFusion::URL.new(config: { 'url' => 'git@localhost' })
       expect { to_test.command = '' }.to raise_error(RuntimeError)
       expect { to_test.command = 'sit' }.to raise_error(RuntimeError)
       expect { to_test.command = 'learn kung fu' }.to raise_error(RuntimeError)
@@ -493,7 +492,7 @@ describe PerforceSwarm::GitFusion do
                 ssh://127.0.0.1:1234
                 ssh://localhost:1234)
       urls.each do |url|
-        parsed = PerforceSwarm::GitFusion::URL.new(url)
+        parsed = PerforceSwarm::GitFusion::URL.new(config: { 'url' => url })
         parsed.command = 'list'
         expect { parsed.repo = true }.to raise_error(RuntimeError), url
       end

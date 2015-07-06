@@ -8,14 +8,14 @@ module PerforceSwarm
       attr_accessor :error
     end
 
-    # returns a hash mapping repo name to description for all repos defined at the configured (or specified)
-    # base URL. returns nil if something went wrong - check the 'error' method if you want details
-    def self.list(url = nil)
-      url    ||= PerforceSwarm::GitlabConfig.new.git_fusion['url']
+    # returns a hash mapping repo name to description for all repos for the given Git Fusion config block.
+    # returns nil if something went wrong - check the 'error' method if you want details
+    def self.list(id = nil)
       @error   = nil
 
-      # run the git fusion @list command
-      output = PerforceSwarm::GitFusion::URL.new(url, true).clear_path.command('list').run
+      # run the git fusion @list command: provide helper script for the password
+      config = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password')]
+      output = PerforceSwarm::GitFusion::URL.new(id: id).clear_path.append_git_config_params(config).command('list').run
 
       # parse the Git Fusion repos
       return parse_repos(output)
