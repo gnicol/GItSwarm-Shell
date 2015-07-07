@@ -10,8 +10,9 @@ module PerforceSwarm
       config = PerforceSwarm::GitlabConfig.new.git_fusion_config_block(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
       git_config_params  =
-          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']]
-      git_config_params += [*config['git_config_params']].flat_map { |value| ['-c', value] if value }.compact
+          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']] +
+          [*config['git_config_params']]
+      git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
       Dir.mktmpdir do |temp|
         silenced     = false
         output       = ''
