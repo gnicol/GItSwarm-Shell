@@ -8,18 +8,12 @@ module PerforceSwarm
       attr_accessor :error
     end
 
-    # returns a hash mapping repo name to description for all repos for the given Git Fusion config block.
-    # returns nil if something went wrong - check the 'error' method if you want details
+    # returns a hash mapping repo name to description for all repos for the given Git Fusion config entry
     def self.list(id = nil)
-      @error   = nil
-
-      # parse the Git Fusion repos
-      return parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
-    rescue StandardError => e
-      @error = e.message
-      nil
+      parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
     end
 
+    # largely a separate method for testability
     def self.parse_repos(git_output)
       repos = {}
       return repos unless git_output

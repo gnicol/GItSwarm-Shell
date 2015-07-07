@@ -11,7 +11,7 @@ module PerforceSwarm
       config = git_fusion
 
       fail 'No Git Fusion configuration found.' if config.nil? || config.empty?
-      fail "Git Fusion config block '#{id}' requested, but not found." if id && !config[id]
+      fail "Git Fusion config entry '#{id}' requested, but not found." if id && !config[id]
 
       # if no id was specified, use 'default' if that key exists
       # otherwise, just use the first entry
@@ -19,11 +19,11 @@ module PerforceSwarm
       id ||= config.first[0]
 
       # pull out the selected entry and ensure it has its id on it
-      block = config[id]
-      block['id'] = id
+      entry       = config[id]
+      entry['id'] = id
 
-      fail "No URL specified in Git Fusion config block '#{id}'" unless block['url']
-      block
+      fail "No URL specified in Git Fusion config entry '#{id}'" unless entry['url']
+      entry
     end
   end
 end

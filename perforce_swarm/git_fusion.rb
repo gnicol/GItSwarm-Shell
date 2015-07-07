@@ -14,12 +14,9 @@ module PerforceSwarm
           [*config['git_config_params']]
       git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
       Dir.mktmpdir do |temp|
-        silenced  = false
-        output    = ''
-        cmd       = ['git']
-        cmd      += git_config_params
-        cmd      += ['clone', '--', url.to_s]
-        Utils.popen(cmd, temp) do |line|
+        silenced = false
+        output   = ''
+        Utils.popen(['git', *git_config_params, 'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
           output += line
@@ -180,10 +177,6 @@ module PerforceSwarm
         self
       end
 
-      def host(url)
-        url.host + (url.port && url.port != url.default_port ? ':' + url.port.to_s : '')
-      end
-
       def to_s
         fail 'Extra requires both command and repo to be specified.' if extra && (!command || !repo)
 
@@ -210,6 +203,12 @@ module PerforceSwarm
 
       def pathed?
         command || repo || extra
+      end
+
+      protected
+
+      def host(url)
+        url.host + (url.port && url.port != url.default_port ? ':' + url.port.to_s : '')
       end
     end
   end

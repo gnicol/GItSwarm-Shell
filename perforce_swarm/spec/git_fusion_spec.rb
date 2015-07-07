@@ -114,7 +114,6 @@ describe PerforceSwarm::GitFusion do
   }
   exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
                  'https://localhost:443/repo' => 'https://localhost/repo'
-
   }
 
   describe :valid_url? do
@@ -218,7 +217,7 @@ describe PerforceSwarm::GitFusion do
   end
 
   describe :parse do
-    it 'strips passwords from the URL when asked' do
+    it 'strips passwords from the URL by default' do
       valid_urls.each do |url|
         output   = PerforceSwarm::GitFusion::URL.new(url)
         expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
@@ -421,7 +420,7 @@ describe PerforceSwarm::GitFusion do
       end
     end
 
-    it 'does not strip the password from the URL if set to false' do
+    it 'does not strip the password from the URL if strip_password is false' do
       valid_urls.each do |url|
         output   = PerforceSwarm::GitFusion::URL.new(url)
         expected = exceptions[url] || url.gsub(%r{/$}, '')
