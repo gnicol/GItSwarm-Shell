@@ -17,6 +17,9 @@ Metrics/LineLength:
 Metrics/MethodLength:
   Enabled: false
 
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
 Metrics/PerceivedComplexity:
   Enabled: false
 

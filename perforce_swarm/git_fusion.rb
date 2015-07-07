@@ -1,36 +1,44 @@
 require 'tmpdir'
 require 'uri'
+require_relative 'config'
 require_relative 'utils'
 
 module PerforceSwarm
   module GitFusion
+    def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
+      fail 'run requires a command' unless command
+      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
+      url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
+      git_config_params  =
+          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']] +
+          [*config['git_config_params']]
+      git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
+      Dir.mktmpdir do |temp|
+        silenced = false
+        output   = ''
+        Utils.popen(['git', *git_config_params, 'clone', '--', url.to_s], temp) do |line|
+          silenced ||= line =~ /^fatal: /
+          next if line =~ /^Cloning into/ || silenced
+          output += line
+          print line       if stream_output
+          block.call(line) if block
+        end
+        return output.chomp
+      end
+    end
+
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
     class URL
       attr_accessor :url, :delimiter
-      attr_reader :scheme
-      attr_writer :extra
+      attr_reader :scheme, :password
+      attr_writer :extra, :strip_password
 
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
 
       def initialize(url)
         parse(url)
-      end
-
-      def run(stream_output = nil, &block)
-        fail 'run requires a command' unless command
-        Dir.mktmpdir do |temp|
-          silenced = false
-          output   = ''
-          Utils.popen(['git', '-c', 'core.askpass=true', 'clone', '--', to_s], temp) do |line|
-            silenced ||= line =~ /^fatal: /
-            next if line =~ /^Cloning into/ || silenced
-            output += line
-            print line       if stream_output
-            block.call(line) if block
-          end
-          return output.chomp
-        end
+        @strip_password = true
       end
 
       # parses the given URL, and sets instance variables for base url (without path), command, repo
@@ -65,16 +73,17 @@ module PerforceSwarm
 
         # parses a URI object or throws an exception if it's invalid
         parsed = URI.parse(url)
+
         fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
         fail "Invalid URL specified: #{url}." if parsed.host.nil?
 
-        # parse out the user/password, host and port (if applicable)
+        # construct the base URL
         @scheme = parsed.scheme
         if @scheme == 'scp'
           self.url = parsed.user + '@' + parsed.host
         else
-          host     = parsed.host + (parsed.port && parsed.port != parsed.default_port ? ':' + parsed.port.to_s : '')
-          self.url = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host
+          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          @password = parsed.password
         end
 
         # turf any leading or trailing slashes, and call it a day if there is no remaining path
@@ -91,8 +100,8 @@ module PerforceSwarm
           # only repo is specified in this case
           self.repo = path
         end
-      rescue URI::Error
-        raise "Invalid URL specified: #{url}."
+      rescue URI::Error => e
+        raise "Invalid URL specified: #{url} : #{e.message}."
       end
 
       def self.valid?(url)
@@ -148,6 +157,14 @@ module PerforceSwarm
         @extra
       end
 
+      def strip_password(*args)
+        if args.length > 0
+          self.strip_password = args[0]
+          return self
+        end
+        @strip_password
+      end
+
       def clear_path
         self.repo = nil
         clear_command
@@ -163,8 +180,15 @@ module PerforceSwarm
       def to_s
         fail 'Extra requires both command and repo to be specified.' if extra && (!command || !repo)
 
+        # strip the password out of the URL if we've been asked to
+        if @scheme != 'scp' && strip_password
+          parsed = URI.parse(url)
+          str    = parsed.scheme + '://' + (parsed.user ? parsed.user + '@' : '') + host(parsed)
+        else
+          str = url
+        end
+
         # build and put @ and params in the right spots
-        str  = url
         str += delimiter        if pathed?
         str += '@' + command    if command
         str += '@'              if command && repo
@@ -179,6 +203,12 @@ module PerforceSwarm
 
       def pathed?
         command || repo || extra
+      end
+
+      protected
+
+      def host(url)
+        url.host + (url.port && url.port != url.default_port ? ':' + url.port.to_s : '')
       end
     end
   end

@@ -112,6 +112,9 @@ describe PerforceSwarm::GitFusion do
                        'https://localhost/@wait@ssh-repo@12' => 'ssh-repo',
                        'https://localhost/@status@ssh-repo' => 'ssh-repo'
   }
+  exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
+                 'https://localhost:443/repo' => 'https://localhost/repo'
+  }
 
   describe :valid_url? do
     it 'returns true on valid git fusion urls' do
@@ -209,6 +212,17 @@ describe PerforceSwarm::GitFusion do
         to_test = PerforceSwarm::GitFusion::URL.new(url)
         to_test.repo = new_repo
         expect(to_test.repo).to eq(new_repo)
+      end
+    end
+  end
+
+  describe :parse do
+    it 'strips passwords from the URL by default' do
+      valid_urls.each do |url|
+        output   = PerforceSwarm::GitFusion::URL.new(url)
+        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expect(output.strip_password(true).to_s).to eq(expected),
+                                                    "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
   end
@@ -357,25 +371,25 @@ describe PerforceSwarm::GitFusion do
                    ['https://foo@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
                       'https://foo@127.0.0.1:8080/@status@repo@0123456789',
                    ['https://foo@localhost:8080', 'list', false, false] => 'https://foo@localhost:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080', 'list', false, false] => 'http://foo:pass@127.0.0.1:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'list', false, false] => 'http://foo:pass@127.0.0.1:8080/@list',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'status', false, false] => 'http://foo:pass@127.0.0.1:8080/@status',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, false] => 'http://foo:pass@127.0.0.1:8080/@wait@repo',
-                   ['http://foo:pass@127.0.0.1:8080/repo-name', 'wait', true, false] => 'http://foo:pass@127.0.0.1:8080/@wait@repo-name',
-                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, 12] => 'http://foo:pass@127.0.0.1:8080/@wait@repo@12',
+                   ['http://foo:pass@127.0.0.1:8080', 'list', false, false] => 'http://foo@127.0.0.1:8080/@list',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'list', false, false] => 'http://foo@127.0.0.1:8080/@list',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'status', false, false] => 'http://foo@127.0.0.1:8080/@status',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, false] => 'http://foo@127.0.0.1:8080/@wait@repo',
+                   ['http://foo:pass@127.0.0.1:8080/repo-name', 'wait', true, false] => 'http://foo@127.0.0.1:8080/@wait@repo-name',
+                   ['http://foo:pass@127.0.0.1:8080/repo', 'wait', true, 12] => 'http://foo@127.0.0.1:8080/@wait@repo@12',
                    ['http://foo:pass@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
-                      'http://foo:pass@127.0.0.1:8080/@status@repo@0123456789',
-                   ['http://foo:pass@localhost:8080', 'list', false, false] => 'http://foo:pass@localhost:8080/@list',
-                   ['http://foo:pass@localhost:8080/repo', 'list', false, false] => 'http://foo:pass@localhost:8080/@list',
-                   ['http://foo:pass@localhost:8080/repo', 'status', false, false] => 'http://foo:pass@localhost:8080/@status',
-                   ['http://foo:pass@localhost:8080/repo', 'wait', true, false] => 'http://foo:pass@localhost:8080/@wait@repo',
-                   ['http://foo:pass@localhost:8080/repo-name', 'wait', true, false] => 'http://foo:pass@localhost:8080/@wait@repo-name',
-                   ['http://foo:pass@localhost:8080/repo', 'wait', true, 12] => 'http://foo:pass@localhost:8080/@wait@repo@12',
+                      'http://foo@127.0.0.1:8080/@status@repo@0123456789',
+                   ['http://foo:pass@localhost:8080', 'list', false, false] => 'http://foo@localhost:8080/@list',
+                   ['http://foo:pass@localhost:8080/repo', 'list', false, false] => 'http://foo@localhost:8080/@list',
+                   ['http://foo:pass@localhost:8080/repo', 'status', false, false] => 'http://foo@localhost:8080/@status',
+                   ['http://foo:pass@localhost:8080/repo', 'wait', true, false] => 'http://foo@localhost:8080/@wait@repo',
+                   ['http://foo:pass@localhost:8080/repo-name', 'wait', true, false] => 'http://foo@localhost:8080/@wait@repo-name',
+                   ['http://foo:pass@localhost:8080/repo', 'wait', true, 12] => 'http://foo@localhost:8080/@wait@repo@12',
                    ['http://foo:pass@localhost:8080/repo', 'status', true, '0123456789'] =>
-                      'http://foo:pass@localhost:8080/@status@repo@0123456789',
-                   ['https://foo:pass@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
-                      'https://foo:pass@127.0.0.1:8080/@status@repo@0123456789',
-                   ['https://foo:pass@localhost:8080', 'list', false, false] => 'https://foo:pass@localhost:8080/@list',
+                      'http://foo@localhost:8080/@status@repo@0123456789',
+                   ['https://foo@127.0.0.1:8080/repo', 'status', true, '0123456789'] =>
+                      'https://foo@127.0.0.1:8080/@status@repo@0123456789',
+                   ['https://foo:pass@localhost:8080', 'list', false, false] => 'https://foo@localhost:8080/@list',
                    ['ssh://localhost:8080', 'list', false, false] => 'ssh://localhost:8080/@list',
                    ['ssh://localhost:8080/repo', 'list', false, false] => 'ssh://localhost:8080/@list',
                    ['ssh://localhost:8080/repo', 'status', false, false] => 'ssh://localhost:8080/@status',
@@ -400,12 +414,18 @@ describe PerforceSwarm::GitFusion do
 
     it 'does not mutate URLs unless you ask nicely' do
       valid_urls.each do |url|
-        output     = PerforceSwarm::GitFusion::URL.new(url)
-        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
-                       'https://localhost:443/repo' => 'https://localhost/repo'
-                     }
-        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        output   = PerforceSwarm::GitFusion::URL.new(url)
+        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
+      end
+    end
+
+    it 'does not strip the password from the URL if strip_password is false' do
+      valid_urls.each do |url|
+        output   = PerforceSwarm::GitFusion::URL.new(url)
+        expected = exceptions[url] || url.gsub(%r{/$}, '')
+        expect(output.strip_password(false).to_s)
+          .to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
       end
     end
 
@@ -413,10 +433,7 @@ describe PerforceSwarm::GitFusion do
       valid_urls.each do |url|
         output     = PerforceSwarm::GitFusion::URL.new('user@host')
         output.parse(url)
-        exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
-                       'https://localhost:443/repo' => 'https://localhost/repo'
-        }
-        expected   = exceptions[url] || url.gsub(%r{/$}, '')
+        expected   = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end
     end
