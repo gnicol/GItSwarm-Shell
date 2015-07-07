@@ -13,21 +13,16 @@ module PerforceSwarm
       fail 'No Git Fusion configuration found.' if config.nil? || config.empty?
       fail "Git Fusion config block '#{id}' requested, but not found." if id && !config[id]
 
-      if id
-        block = config[id]
-      else
-        if config['default']
-          id    = 'default'
-          block = config['default']
-        else
-          first_block = config.first
-          id          = first_block[0]
-          block       = first_block[1]
-        end
-      end
+      # if no id was specified, use 'default' if that key exists
+      # otherwise, just use the first entry
+      id ||= 'default' if config['default']
+      id ||= config.first[0]
+
+      # pull out the selected entry and ensure it has its id on it
+      block = config[id]
+      block['id'] = id
 
       fail "No URL specified in Git Fusion config block '#{id}': " + block.inspect unless block && block['url']
-      block['id'] = id
       block
     end
   end

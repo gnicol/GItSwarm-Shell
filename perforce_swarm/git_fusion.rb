@@ -14,11 +14,11 @@ module PerforceSwarm
           [*config['git_config_params']]
       git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
       Dir.mktmpdir do |temp|
-        silenced     = false
-        output       = ''
-        cmd  = ['git']
-        cmd += git_config_params if git_config_params
-        cmd += ['clone', '--', url.to_s]
+        silenced  = false
+        output    = ''
+        cmd       = ['git']
+        cmd      += git_config_params
+        cmd      += ['clone', '--', url.to_s]
         Utils.popen(cmd, temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
