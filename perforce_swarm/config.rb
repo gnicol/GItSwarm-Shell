@@ -22,7 +22,7 @@ module PerforceSwarm
       block = config[id]
       block['id'] = id
 
-      fail "No URL specified in Git Fusion config block '#{id}': " + block.inspect unless block && block['url']
+      fail "No URL specified in Git Fusion config block '#{id}'" unless block['url']
       block
     end
   end
