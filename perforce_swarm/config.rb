@@ -7,7 +7,7 @@ module PerforceSwarm
       @config['git_fusion'] ||= {}
     end
 
-    def git_fusion_config_block(id = nil)
+    def git_fusion_entry(id = nil)
       config = git_fusion
 
       fail 'No Git Fusion configuration found.' if config.nil? || config.empty?

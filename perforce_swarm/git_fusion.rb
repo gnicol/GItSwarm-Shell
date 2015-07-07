@@ -7,7 +7,7 @@ module PerforceSwarm
   module GitFusion
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
       fail 'run requires a command' unless command
-      config = PerforceSwarm::GitlabConfig.new.git_fusion_config_block(id)
+      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
       git_config_params  =
           ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']] +
