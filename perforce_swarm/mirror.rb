@@ -1,5 +1,6 @@
 require 'socket'
 require 'tmpdir'
+require_relative 'repo'
 require_relative 'utils'
 require_relative '../lib/gitlab_init'
 require_relative '../lib/gitlab_post_receive'
@@ -21,7 +22,7 @@ module PerforceSwarm
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
     def self.push(refs, repo_path, options = {})
-      mirror = mirror_url(repo_path)
+      repo = Repo.new(repo_path)
 
       # Set default options and check that this function is being called correctly
       options = { receive_pack: false, require_block: !options[:receive_pack] }.merge(options)
@@ -30,20 +31,20 @@ module PerforceSwarm
       if options[:receive_pack]
         socket_path = ENV['WRITE_LOCK_SOCKET']
         fail Exception, 'WRITE_LOCK_SOCKET is required for :receive_pack' unless socket_path
-        if mirror && !File.socket?(socket_path)
+        if repo.mirrored? && !File.socket?(socket_path)
           fail Exception, "WRITE_LOCK_SOCKET is not a valid socket\n#{socket_path}"
         end
-        if !mirror && !File.socket?(socket_path) && socket_path != NOT_MIRRORED
+        if !repo.mirrored? && !File.socket?(socket_path) && socket_path != NOT_MIRRORED
           fail Exception, "WRITE_LOCK_SOCKET is invalid\n#{socket_path}"
         end
       end
 
       # if we are mirroring; filter the involved refs if needed
-      refs = mirror_push_refs(repo_path, refs) if mirror
+      refs = mirror_push_refs(repo_path, refs) if repo.mirrored?
 
       # no configured mirror or all refs filtered means nutin to do; exit happy!
-      unless mirror && !refs.to_a.empty?
-        yield(mirror) if block_given?
+      unless repo.mirrored? && !refs.to_a.empty?
+        yield(repo) if block_given?
         return
       end
 
@@ -67,7 +68,7 @@ module PerforceSwarm
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^(?:remote: )?Commencing push (\d+) processing.../, 1]
       unless push_id
-        yield(mirror) if block_given?
+        yield(repo) if block_given?
         return
       end
 
@@ -79,10 +80,10 @@ module PerforceSwarm
       Dir.mktmpdir do |temp|
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
-        wait = mirror.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
-        wait = mirror.gsub(%r{:([^:]*/?$)}, ':@wait@\1@' + push_id) if mirror == wait
-        if mirror == wait
-          puts message = "Unable to add @wait@ to mirror url: #{mirror}"
+        wait = repo.mirror_url.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
+        wait = repo.mirror_url.gsub(%r{:([^:]*/?$)}, ':@wait@\1@' + push_id) if repo.mirror_url == wait
+        if repo.mirror_url == wait
+          puts message = "Unable to add @wait@ to mirror url: #{repo.mirror_url}"
           fail Exception, message
         end
 
@@ -97,7 +98,7 @@ module PerforceSwarm
 
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
           if output =~ /^(?:remote: )?Push \d+ completed successfully/
-            yield(mirror) if block_given?
+            yield(repo) if block_given?
             return nil  # the nil makes rubocop happy
           end
 
@@ -149,7 +150,8 @@ module PerforceSwarm
     # @todo; when we fetch remove branches/tags/etc no longer present on the master remote mirror
     def self.fetch(repo_path, skip_if_pushing = true)
       # see if we have a mirror remote, if not nothing to do
-      return true unless (mirror = mirror_url(repo_path))
+      repo = Repo.new(repo_path)
+      return true unless repo.mirrored?
 
       # the lock is automatically released after the blocks finish, but we manually release the lock for performance.
       File.open(File.join(repo_path, 'mirror_push.lock'), 'w+', 0644) do |push_handle|
@@ -202,14 +204,14 @@ module PerforceSwarm
               return true
             rescue Mirror::Exception => e
               # Something went wrong, record the details
-              $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{mirror}\n#{e.message}"
+              $logger.error "Mirror fetch failed.\nRepo Path: #{repo_path}\nMirror: #{repo.mirror_url}\n#{e.message}"
               File.write(error_file, e.message)
               return false
             ensure
               fetch_handle.flock(File::LOCK_UN)
               fetch_handle.close
               if durations && output
-                message = "Mirror fetch\nRepo Path: #{repo_path}\nMirror: #{mirror}\nDuration #{durations}\n"
+                message = "Mirror fetch\nRepo Path: #{repo_path}\nMirror: #{repo.mirror_url}\nDuration #{durations}\n"
                 message += "Exit Status: #{status}\n#{output}"
                 $logger.info message
               end
@@ -226,7 +228,7 @@ module PerforceSwarm
     # no mirror remote, or there was an error while fetching the timestamp
     def self.last_fetched(repo_path)
       # see if we have a mirror remote; if not, nothing to do
-      return false unless mirror_url(repo_path)
+      return false unless Repo.new(repo_path).mirrored?
 
       Time.at(File.read(File.join(repo_path, 'mirror_fetch.last')).strip.to_i)
     rescue
@@ -235,19 +237,13 @@ module PerforceSwarm
 
     def self.last_fetch_error(repo_path)
       # see if we have a mirror remote, if not nothing to do
-      return false unless (mirror = mirror_url(repo_path))
+      repo = Repo.new(repo_path)
+      return false unless repo.mirrored?
 
       error = File.read(File.join(repo_path, 'mirror_fetch.error'))
-      "Fetch from mirror: #{mirror} failed.\nPlease notify your Administrator.\n#{error}"
+      "Fetch from mirror: #{repo.mirror_url} failed.\nPlease notify your Administrator.\n#{error}"
     rescue SystemCallError
       return false
-    end
-
-    def self.mirror_url(repo_path)
-      mirror, status = Utils.popen(%w(git config --get remote.mirror.url), repo_path)
-      mirror.strip!
-      return false unless status.zero? && !mirror.empty?
-      mirror
     end
 
     def self.show_ref(repo_path)

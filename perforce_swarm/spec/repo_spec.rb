@@ -3,42 +3,43 @@ require_relative 'spec_helper'
 require_relative '../repo'
 
 describe PerforceSwarm::Repo do
-  describe :parse_repos do
-    it 'returns an empty list with empty input' do
-      expect(PerforceSwarm::Repo.parse_repos('')).to eq({})
-    end
-
-    it 'return an empty list with nil input' do
-      expect(PerforceSwarm::Repo.parse_repos(nil)).to eq({})
-    end
-
-    it 'returns an empty list when no repos are present in the input' do
-      expect(PerforceSwarm::Repo.parse_repos('')).to eq({})
-    end
-
-    it 'returns an empty list with invalid input' do
-      JSON.parse(File.read('perforce_swarm/spec/examples/git_fusion_repo_invalid.json')).each do |invalid_example|
-        expect(PerforceSwarm::Repo.parse_repos(invalid_example)).to eq({})
-      end
-    end
-
-    it 'returns a list of repos when they have empty descriptions' do
-      output = "Cloning into '@list'...\n" \
-               "No option 'description' in section: '@repo'\n" \
-               "fatal: Could not read from remote repository.\n\n" \
-               'Please make sure you have the correct access rights' \
-               'and the repository exists.'
-      expect(PerforceSwarm::Repo.parse_repos(output)).to eq({})
-    end
-
-    it 'returns a list of repos when they have descriptions' do
-      from_examples_file('perforce_swarm/spec/examples/git_fusion_repo_valid.json')
-    end
+  before do
+    FileUtils.mkdir_p(tmp_repos_path)
+    GitlabConfig.any_instance.stub(repos_path: tmp_repos_path)
   end
 
-  def from_examples_file(filename)
-    JSON.parse(File.read(filename)).each do |example|
-      expect(PerforceSwarm::Repo.parse_repos(example[0])).to eq(example[1])
+  after do
+    FileUtils.rm_rf(tmp_repos_path)
+  end
+
+  let(:tmp_repos_path) { File.join(ROOT_PATH, 'tmp', 'repositories') }
+  let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', '6-branch-4-tag-repo.bundle') }
+  let(:repo_name) { 'gitswarm.git' }
+
+  subject do
+    PerforceSwarm::Repo
+  end
+
+  describe :mirror_url do
+    let(:gl_projects_create) do
+      build_gitlab_projects('import-project', repo_name, test_repo_bundle)
+    end
+    let(:gl_mirror_create) do
+      build_gitlab_projects('import-project', "#{repo_name}-mirror", test_repo_bundle)
+    end
+
+    it 'returns false for a non-mirrored repo' do
+      (gl_project = gl_projects_create).exec
+      subject.new(gl_project.full_path).send(:mirror_url).should be_false
+      subject.new(gl_project.full_path).send(:mirrored?).should be_false
+    end
+
+    it 'returns mirror url for a mirrored repo' do
+      (gl_project = gl_projects_create).exec
+      (gl_mirror = gl_mirror_create).exec
+      add_mirror(gl_project.full_path, gl_mirror.full_path)
+      subject.new(gl_project.full_path).send(:mirror_url).should be == gl_mirror.full_path
+      subject.new(gl_project.full_path).send(:mirrored?).should be_true
     end
   end
 end
