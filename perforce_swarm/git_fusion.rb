@@ -12,7 +12,7 @@ module PerforceSwarm
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
-        Utils.popen(['git', *git_config_params(config['id'], config['git_config_params']),
+        Utils.popen(['git', *git_config_params(config),
                      'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
@@ -26,7 +26,8 @@ module PerforceSwarm
 
     def self.add_mirror_remote(mirror_url, local_path)
       # construct the Git Fusion URL based on the mirror URL given
-      fail 'Mirror URL must start with mirror://' unless mirror_url.start_with?('mirror://')
+      fail 'Mirror URL must start with mirror://' unless mirror_url && mirror_url.start_with?('mirror://')
+      fail "No local repo path specified for #{mirror_url}" unless local_path
       parsed = mirror_url.sub(%r{^mirror://}, '').split('/')
       fail "Invalid Mirror URL provided: #{mirror_url}" unless parsed.length == 2
 
@@ -35,7 +36,7 @@ module PerforceSwarm
 
       # run the git command to add the remote
       output = ''
-      Utils.popen(['git', *git_config_params(config['id'], config['git_config_params']),
+      Utils.popen(['git', *git_config_params(config),
                    'remote', 'add', 'mirror', url.to_s], local_path) do |line|
         # TODO: check for success/failure
         output += line
@@ -44,9 +45,10 @@ module PerforceSwarm
       output.chomp
     end
 
-    def self.git_config_params(id, extra_params = nil)
-      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + id] +
-               [*extra_params]
+    def self.git_config_params(config)
+      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' +
+                config['id']] +
+               [*config['git_config_params']]
       params.flat_map { |value| ['-c', value] if value }.compact
     end
 
