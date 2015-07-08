@@ -16,22 +16,16 @@ module PerforceSwarm
 
     def mirror_url=(url)
       # construct the Git Fusion URL based on the mirror URL given
-      fail 'Mirror URL must start with mirror://' unless url.start_with?('mirror://')
-      parsed = url.sub(%r{^mirror://}, '').split('/')
-      fail "Invalid Mirror URL provided: #{url}" unless parsed.length == 2
-
-      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(parsed[0])
-      url    = PerforceSwarm::GitFusion::URL.new(config['url']).repo(parsed[1])
-
       # run the git command to add the remote
-      output = ''
-      Utils.popen(['git', *GitFusion.git_config_params(config['id'], config['git_config_params']),
-                   'remote', 'add', 'mirror', url.to_s], local_path) do |line|
-        # TODO: check for success/failure
-        output += line
+      resolved_url = GitFusionRepo.resolve_url(url)
+      Utils.popen(%w(git remote remove mirror), @repo_path)
+      output, status = Utils.popen(['git', 'remote', 'add', 'mirror', resolved_url], @repo_path)
+      @mirror_url    = nil
+      unless status.zero? && mirror_url == resolved_url
+        fail "Failed to add mirror remote #{url} to #{@repo_path} its still #{mirror_url}\n#{output}"
       end
-      # TODO: return a useful value around success/failure here
-      output.chomp
+
+      url
     end
 
     def mirror_url

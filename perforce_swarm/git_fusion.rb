@@ -12,8 +12,7 @@ module PerforceSwarm
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
-        Utils.popen(['git', *git_config_params(config['id'], config['git_config_params']),
-                     'clone', '--', url.to_s], temp) do |line|
+        Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
           output += line
@@ -24,9 +23,10 @@ module PerforceSwarm
       end
     end
 
-    def self.git_config_params(id, extra_params = nil)
-      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + id] +
-               [*extra_params]
+    def self.git_config_params(config)
+      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' +
+                config['id']] +
+               [*config['git_config_params']]
       params.flat_map { |value| ['-c', value] if value }.compact
     end
 
