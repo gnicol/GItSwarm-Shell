@@ -311,7 +311,7 @@ module PerforceSwarm
 
     def self.fetch_locked?(repo_path)
       # see if we have a mirror remote, if not nothing to do
-      return false unless mirror_url(repo_path)
+      return false unless Repo.new(repo_path).mirrored?
 
       # the lock is automatically released after the blocks finish, but we manually release the lock for performance.
       File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_handle|

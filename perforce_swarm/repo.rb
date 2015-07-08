@@ -1,4 +1,4 @@
-require_relative 'init'
+require_relative '../lib/gitlab_init'
 require_relative 'utils'
 
 module PerforceSwarm
