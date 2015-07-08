@@ -9,14 +9,11 @@ module PerforceSwarm
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
-      git_config_params  =
-          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']] +
-          [*config['git_config_params']]
-      git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
-        Utils.popen(['git', *git_config_params, 'clone', '--', url.to_s], temp) do |line|
+        Utils.popen(['git', *git_config_params(config['id'], config['git_config_params']),
+                     'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
           output += line
@@ -25,6 +22,32 @@ module PerforceSwarm
         end
         return output.chomp
       end
+    end
+
+    def self.add_mirror_remote(mirror_url, local_path)
+      # construct the Git Fusion URL based on the mirror URL given
+      fail 'Mirror URL must start with mirror://' unless mirror_url.start_with?('mirror://')
+      parsed = mirror_url.sub(%r{^mirror://}, '').split('/')
+      fail "Invalid Mirror URL provided: #{mirror_url}" unless parsed.length == 2
+
+      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(parsed[0])
+      url    = PerforceSwarm::GitFusion::URL.new(config['url']).repo(parsed[1])
+
+      # run the git command to add the remote
+      output = ''
+      Utils.popen(['git', *git_config_params(config['id'], config['git_config_params']),
+                   'remote', 'add', 'mirror', url.to_s], local_path) do |line|
+        # TODO: check for success/failure
+        output += line
+      end
+      # TODO: return a useful value around success/failure here
+      output.chomp
+    end
+
+    def self.git_config_params(id, extra_params = nil)
+      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + id] +
+               [*extra_params]
+      params.flat_map { |value| ['-c', value] if value }.compact
     end
 
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
