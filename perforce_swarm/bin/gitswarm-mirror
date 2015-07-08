@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+
+require_relative '../../lib/gitlab_init'
+
+#
+# GitSwarm Mirror shell. Perform mirroring related tasks against repos managed by GitSwarm
+#
+# Ex.
+#   /perforce_swarm/bin/gitswarm-mirror fetch gitlab/gitlab-ci.git
+#
+#   Or to return immediately if the repo has been updated within the last 300 seconds:
+#   /perforce_swarm/bin/gitswarm-mirror fetch --min-outdated=300 gitlab/gitlab-ci.git
+#
+#   Normally if a fetch is already active this just returns, if you want it to wait:
+#   /perforce_swarm/bin/gitswarm-mirror fetch --wait-if-busy gitlab/gitlab-ci.git
+#
+require File.join(ROOT_PATH, 'perforce_swarm', 'mirror_shell')
+
+# Return non-zero if command execution was not successful
+if PerforceSwarm::MirrorShell.new.exec
+  exit 0
+else
+  exit 1
+end
