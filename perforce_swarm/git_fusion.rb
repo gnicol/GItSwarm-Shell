@@ -9,14 +9,10 @@ module PerforceSwarm
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
-      git_config_params  =
-          ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' + config['id']] +
-          [*config['git_config_params']]
-      git_config_params = git_config_params.flat_map { |value| ['-c', value] if value }.compact
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
-        Utils.popen(['git', *git_config_params, 'clone', '--', url.to_s], temp) do |line|
+        Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
           output += line
@@ -25,6 +21,13 @@ module PerforceSwarm
         end
         return output.chomp
       end
+    end
+
+    def self.git_config_params(config)
+      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password') + ' ' +
+                config['id']] +
+               [*config['git_config_params']]
+      params.flat_map { |value| ['-c', value] if value }.compact
     end
 
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras

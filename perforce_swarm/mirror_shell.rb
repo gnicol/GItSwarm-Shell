@@ -28,8 +28,8 @@ module PerforceSwarm
 
     def fetch
       fail 'No project name was specified'      unless @project_name && @full_path
-      fail 'Invalid project name was specified' unless File.file?(File.join(@full_path, 'config'))
-      return false unless Mirror.mirror_url(@full_path)
+      repo = Repo.new(@full_path)
+      return false unless repo.mirrored?
 
       # deal with parsing out any known options
       wait_if_busy = false

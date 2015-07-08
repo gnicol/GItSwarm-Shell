@@ -1,30 +1,40 @@
-require_relative 'init'
-require_relative 'git_fusion'
+require_relative '../lib/gitlab_init'
 require_relative 'utils'
 
 module PerforceSwarm
   class Repo
-    class << self
-      attr_accessor :error
+    def initialize(repo_path)
+      repo_path = File.realpath(repo_path)
+      fail 'Not a valid repo path' unless File.exist?(File.join(repo_path, 'config'))
+      @repo_path = repo_path
     end
 
-    # returns a hash mapping repo name to description for all repos for the given Git Fusion config entry
-    def self.list(id = nil)
-      parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
+    def mirrored?
+      return false unless mirror_url
+      true
     end
 
-    # largely a separate method for testability
-    def self.parse_repos(git_output)
-      repos = {}
-      return repos unless git_output
-
-      # iterate over each repo found and build a hash mapping repo name to description
-      git_output.lines.each do |repo|
-        if /^(?<name>[\w\-]+)\s+(push|pull)?\s+([\w\-]+)\s+(?<description>.+?)$/ =~ repo
-          repos[name] = description.strip
-        end
+    def mirror_url=(url)
+      # construct the Git Fusion URL based on the mirror URL given
+      # run the git command to add the remote
+      resolved_url = GitFusionRepo.resolve_url(url)
+      Utils.popen(%w(git remote remove mirror), @repo_path)
+      output, status = Utils.popen(['git', 'remote', 'add', 'mirror', resolved_url], @repo_path)
+      @mirror_url    = nil
+      unless status.zero? && mirror_url == resolved_url
+        fail "Failed to add mirror remote #{url} to #{@repo_path} its still #{mirror_url}\n#{output}"
       end
-      repos
+
+      url
+    end
+
+    def mirror_url
+      return @mirror_url if @mirror_url
+
+      @mirror_url, status = Utils.popen(%w(git config --get remote.mirror.url), @repo_path)
+      @mirror_url.strip!
+      @mirror_url = false unless status.zero? && !@mirror_url.empty?
+      @mirror_url
     end
   end
 end
