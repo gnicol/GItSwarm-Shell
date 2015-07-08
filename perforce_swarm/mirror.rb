@@ -313,6 +313,23 @@ module PerforceSwarm
       end
     end
 
+    def self.fetch_locked?(repo_path)
+      # see if we have a mirror remote, if not nothing to do
+      return false unless mirror_url(repo_path)
+
+      # the lock is automatically released after the blocks finish, but we manually release the lock for performance.
+      File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_handle|
+        begin
+          # we just invert the flock result so we're fetch_locked? false if we get a lock (as no-one else had one)
+          # and we're fetch_locked? true if we can't get a lock (as someone else has one)
+          return !fetch_handle.flock(File::LOCK_EX | File::LOCK_NB)
+        ensure
+          fetch_handle.flock(File::LOCK_UN)
+          fetch_handle.close
+        end
+      end
+    end
+
     # used to send the command LOCK or UNLOCK to the write lock socket
     # only usable on mirrored repos during a push operation via receive_pack
     def self.lock_socket(command)
