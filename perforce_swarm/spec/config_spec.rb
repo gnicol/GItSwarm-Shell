@@ -10,6 +10,8 @@ describe PerforceSwarm::GitlabConfig do
       before do
         config.instance_variable_set(:@config, YAML.load(<<eos
 git_fusion:
+  enabled: true
+  some_value: some string
   default:
     url: "foo@bar"
   foo:
@@ -29,6 +31,11 @@ eos
         expect(config.git_fusion_entry('foo')['url']).to eq('bar@baz'), config.inspect
       end
 
+      it 'handles non-hash config entries' do
+        expect(config.git_fusion['enabled']).to be_true, config.inspect
+        expect(config.git_fusion['some_value']).to eq('some string'), config.inspect
+      end
+
       it 'raises an exception if a specific entry id is requested by not found' do
         expect { config.git_fusion_entry('nonexistent') }.to raise_error(RuntimeError), config.inspect
       end
@@ -38,6 +45,7 @@ eos
       before do
         config.instance_variable_set(:@config, YAML.load(<<eos
 git_fusion:
+  enabled: true
   foo:
     url: "bar@baz"
   bar:
@@ -58,6 +66,9 @@ eos
       it 'raises an exception if no configuration is specified' do
         expect { config.git_fusion_entry }.to raise_error(RuntimeError), config.inspect
       end
+      it 'defaults to disabled' do
+        expect(config.git_fusion['enabled']).to be_false, config.inspect
+      end
     end
 
     context 'nil config' do
@@ -66,6 +77,9 @@ eos
       end
       it 'raises an exception if the configuration is nil' do
         expect { config.git_fusion_entry }.to raise_error(RuntimeError), config.inspect
+      end
+      it 'defaults to disabled' do
+        expect(config.git_fusion['enabled']).to be_false, config.inspect
       end
     end
 
@@ -76,6 +90,9 @@ eos
       it 'raises an exception if an invalid configuration is given' do
         expect { config.git_fusion_entry }.to raise_error(RuntimeError), config.inspect
       end
+      it 'defaults to disabled' do
+        expect(config.git_fusion['enabled']).to be_false, config.inspect
+      end
     end
 
     context 'entry contains no URL' do
@@ -85,6 +102,9 @@ eos
       it 'raises an exception if a config entry does not at least have a URL' do
         expect { config.git_fusion_entry }.to raise_error(RuntimeError), config.inspect
       end
+      it 'defaults to disabled' do
+        expect(config.git_fusion['enabled']).to be_false, config.inspect
+      end
     end
 
     context 'no git_fusion entry' do
@@ -93,6 +113,9 @@ eos
       end
       it 'raises an exception if no git_fusion config entry is found' do
         expect { config.git_fusion_entry }.to raise_error(RuntimeError), config.inspect
+      end
+      it 'defaults to disabled' do
+        expect(config.git_fusion['enabled']).to be_false, config.inspect
       end
     end
   end
