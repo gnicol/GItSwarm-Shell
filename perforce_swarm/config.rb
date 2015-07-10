@@ -9,6 +9,10 @@ module PerforceSwarm
       @config['git_fusion']
     end
 
+    def git_fusion_enabled?
+      git_fusion['enabled']
+    end
+
     def git_fusion_entry(id = nil)
       config = git_fusion
 
