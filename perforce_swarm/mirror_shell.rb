@@ -69,11 +69,8 @@ module PerforceSwarm
     end
 
     def update_redis(success)
-      $logger.debug("CLI Fetch adding redis event #{config.redis_namespace}:queue:perforce_swarm_post_fetch " \
-                    "for #{@full_path} with success = #{success.inspect}")
-
-      queue = "#{config.redis_namespace}:queue:perforce_swarm_post_fetch"
-      msg   = JSON.dump('class' => 'PerforceSwarm::PostFetch', 'args' => [@full_path, success])
+      queue = "#{config.redis_namespace}:queue:default"
+      msg   = JSON.dump('class' => 'PerforceSwarm::PostFetchWorker', 'args' => [@full_path, success])
       if system(*config.redis_command, 'rpush', queue, msg, err: '/dev/null', out: '/dev/null')
         return true
       else
