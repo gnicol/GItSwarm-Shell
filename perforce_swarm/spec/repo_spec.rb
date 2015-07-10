@@ -63,7 +63,7 @@ describe PerforceSwarm::Repo do
       (gl_project = gl_projects_create).exec
       url         = 'mirror://not-a-thing/Talkhouse'
       expect { subject.new(gl_project.full_path).send(:mirror_url=, url) }
-        .to raise_error(RuntimeError, /not found or is missing a URL\./)
+        .to raise_error(RuntimeError, /does not exist\./)
     end
 
     it 'can set a mirror remote using mirror://instance/repo format' do
