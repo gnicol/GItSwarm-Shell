@@ -18,7 +18,7 @@ module PerforceSwarm
 
       # remove any keys that are not hashes or don't have a URL defined
       stripped = config
-      stripped.delete_if { |_key, value| !value.is_a?(Hash) || value['url'].nil? }
+      stripped.delete_if { |_key, value| !value.is_a?(Hash) || value['url'].nil? || value['url'].empty? }
 
       fail 'No Git Fusion configuration found.'               if stripped.nil? || stripped.empty?
       fail "Git Fusion config entry '#{id}' does not exist."  if id && !stripped[id]
