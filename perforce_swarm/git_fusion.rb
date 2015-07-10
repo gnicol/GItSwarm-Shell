@@ -24,8 +24,7 @@ module PerforceSwarm
     end
 
     def self.git_config_params(config)
-      params = ['core.askpass=' + File.join(File.dirname(__FILE__), 'bin', 'git-provide-password')] +
-               [*config['git_config_params']]
+      params = ['core.askpass=' + File.join(__dir__, 'bin', 'git-provide-password'), *config['git_config_params']]
       params.flat_map { |value| ['-c', value] if value }.compact
     end
 
