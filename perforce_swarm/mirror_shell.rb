@@ -60,10 +60,10 @@ module PerforceSwarm
 
       begin
         Mirror.fetch!(@full_path)
-        update_redis(true)
+        update_redis(true)  if redis_on_finish
         true
       rescue
-        update_redis(false)
+        update_redis(false) if redis_on_finish
         false
       end
     end
