@@ -14,6 +14,10 @@ require_relative '../../lib/gitlab_init'
 #   Normally if a fetch is already active this just returns, if you want it to wait:
 #   /perforce_swarm/bin/gitswarm-mirror fetch --wait-if-busy gitlab/gitlab-ci.git
 #
+#   Other supported options:
+#     --redis-on-finish   Posts a #{config.redis_namespace}:queue:post_fetch event.
+#                         Forces --wait-if-busy. Not compatible with --min-outdated.
+#
 require File.join(ROOT_PATH, 'perforce_swarm', 'mirror_shell')
 
 # Return non-zero if command execution was not successful
