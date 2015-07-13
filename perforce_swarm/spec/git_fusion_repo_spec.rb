@@ -17,7 +17,7 @@ describe PerforceSwarm::GitFusionRepo do
     end
 
     it 'returns an empty list with invalid input' do
-      JSON.parse(File.read('perforce_swarm/spec/examples/git_fusion_repo_invalid.json')).each do |invalid_example|
+      JSON.parse(File.read("#{__dir__}/examples/git_fusion_repo_invalid.json")).each do |invalid_example|
         expect(PerforceSwarm::GitFusionRepo.parse_repos(invalid_example)).to eq({})
       end
     end
@@ -32,7 +32,7 @@ describe PerforceSwarm::GitFusionRepo do
     end
 
     it 'returns a list of repos when they have descriptions' do
-      from_examples_file('perforce_swarm/spec/examples/git_fusion_repo_valid.json')
+      from_examples_file("#{__dir__}/examples/git_fusion_repo_valid.json")
     end
   end
 
