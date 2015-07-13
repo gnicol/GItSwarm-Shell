@@ -22,7 +22,7 @@ describe PerforceSwarm::GitFusionRepo do
       end
     end
 
-    it 'returns a list of repos when they have empty descriptions' do
+    it 'returns an empty list of repos when we get an empty description error from Git Fusion' do
       output = "Cloning into '@list'...\n" \
                "No option 'description' in section: '@repo'\n" \
                "fatal: Could not read from remote repository.\n\n" \
