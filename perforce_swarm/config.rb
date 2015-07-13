@@ -20,6 +20,9 @@ module PerforceSwarm
       stripped = config
       stripped.delete_if { |_key, value| !value.is_a?(Hash) || value['url'].nil? || value['url'].empty? }
 
+      # normalize default to nil so we'll pick the first entry if no 'default' key is present
+      id = nil if id == 'default'
+
       fail 'No Git Fusion configuration found.'               if stripped.nil? || stripped.empty?
       fail "Git Fusion config entry '#{id}' does not exist."  if id && !stripped[id]
       fail "Git Fusion config entry '#{id}' is malformed."    if id && config[id] && !stripped[id]
