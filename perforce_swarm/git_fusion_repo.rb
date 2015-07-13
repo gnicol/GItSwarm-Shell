@@ -14,11 +14,11 @@ module PerforceSwarm
       repos = {}
       return repos unless git_output
 
-      # iterate over each repo found and build a hash mapping repo name to description:
+      # iterate over each repo found and build a hash mapping repo name to description
       # !%40%23   push utf8       A Git Fusion repo config ...
       # Talkhouse pull utf8       A description for this repo
       git_output.lines.each do |repo|
-        if /^(?<name>[^\s]+)\s+(push|pull)?\s+([^\s]+)\s+(?<description>.+?)$/ =~ repo
+        if /^(?<name>[^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(?<description>.+?))?$/ =~ repo
           repos[name] = description.strip
         end
       end
