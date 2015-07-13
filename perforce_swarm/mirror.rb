@@ -248,7 +248,12 @@ module PerforceSwarm
 
     def self.show_ref(repo_path)
       refs, status = Utils.popen(%w(git show-ref --heads --tags), repo_path)
+
+      # if the repo is dead empty (e.g. initial import) we get status 1 with no output, that's ok
+      # any other non-zero exit code, or 1 with an invalid exit code, blows us up though
+      return '' if status.to_i == 1 && refs.empty?
       fail "git show-ref failed with:\n#{refs}" unless status.zero?
+
       refs.strip!
     end
 
