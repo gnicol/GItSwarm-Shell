@@ -5,6 +5,8 @@ module PerforceSwarm
     attr_accessor :config
 
     def initialize
+      $logger.debug "gitswarm-mirror invoked with #{ARGV.length} args: '#{ARGV.join("', '")}'"
+
       # the first arg is the command, the last arg the project name
       # we leave any other args alone and the individual handler can parse them as options
       @config       = GitlabConfig.new
@@ -60,11 +62,15 @@ module PerforceSwarm
       begin
         Mirror.fetch!(@full_path)
         update_redis(true)  if redis_on_finish
-        true
-      rescue
+      rescue => ex
         update_redis(false) if redis_on_finish
-        false
+        raise ex
       end
+
+      true
+    rescue => ex
+      $logger.error("gitswarm-mirror fetch failed. #{ex.class} #{ex.message}")
+      false
     end
 
     def update_redis(success)
