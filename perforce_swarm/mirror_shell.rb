@@ -10,8 +10,7 @@ module PerforceSwarm
       @config       = GitlabConfig.new
       @command      = ARGV.shift
       @project_name = ARGV.pop
-      @repos_path   = GitlabConfig.new.repos_path
-      @full_path    = File.join(@repos_path, @project_name) unless @project_name.nil?
+      @full_path    = File.join(config.repos_path, @project_name) unless @project_name.nil?
     end
 
     def exec
