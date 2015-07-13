@@ -16,7 +16,7 @@ module PerforceSwarm
 
       # iterate over each repo found and build a hash mapping repo name to description
       git_output.lines.each do |repo|
-        if /^(?<name>[\w\-]+)\s+(push|pull)?\s+([\w\-]+)\s+(?<description>.+?)$/ =~ repo
+        if /^(?<name>[^\s]+)\s+(push|pull)?\s+([\w\-]+)\s+(?<description>.+?)$/ =~ repo
           repos[name] = description.strip
         end
       end
