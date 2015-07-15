@@ -1,5 +1,4 @@
-require_relative 'init'
-require_relative '../lib/gitlab_config'
+require_relative '../lib/gitlab_init'
 
 module PerforceSwarm
   class GitlabConfig < GitlabConfig
