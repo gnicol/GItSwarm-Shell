@@ -1,5 +1,6 @@
 require 'socket'
 require 'tmpdir'
+require_relative 'git_fusion'
 require_relative 'repo'
 require_relative 'utils'
 require_relative '../lib/gitlab_init'
@@ -48,6 +49,10 @@ module PerforceSwarm
         return
       end
 
+      # determine the git config params we want to include when running commands
+      config            = PerforceSwarm::GitlabConfig.new.git_fusion_entry
+      git_config_params = PerforceSwarm::GitFusion.git_config_params(config)
+
       # stores the time taken for various phases
       durations = Durations.new
 
@@ -61,7 +66,7 @@ module PerforceSwarm
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
-      push_output, status = Utils.popen(['git', 'push', 'mirror', '--', *refs], repo_path, true)
+      push_output, status = Utils.popen(['git', *git_config_params, 'push', 'mirror', '--', *refs], repo_path, true)
       durations.stop(:push)
       fail Exception, push_output unless status.zero?
 
@@ -90,7 +95,7 @@ module PerforceSwarm
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
           silenced        = false
-          output, _status = Utils.popen(['git', 'clone', '--', wait], temp) do |line|
+          output, _status = Utils.popen(['git', *git_config_params, 'clone', '--', wait], temp) do |line|
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
@@ -153,6 +158,10 @@ module PerforceSwarm
       repo = Repo.new(repo_path)
       return true unless repo.mirrored?
 
+      # determine the git config params we want to include when running commands
+      config            = PerforceSwarm::GitlabConfig.new.git_fusion_entry
+      git_config_params = PerforceSwarm::GitFusion.git_config_params(config)
+
       # the lock is automatically released after the blocks finish, but we manually release the lock for performance.
       File.open(File.join(repo_path, 'mirror_push.lock'), 'w+', 0644) do |push_handle|
         begin
@@ -181,7 +190,8 @@ module PerforceSwarm
               # fetch from the mirror, if that fails then capute failure details
               durations = Durations.new
               durations.start(:fetch)
-              output, status = Utils.popen(%w(git fetch mirror) + mirror_fetch_refs(repo_path), repo_path)
+              command   = ['git', *git_config_params, 'fetch', 'mirror'] + mirror_fetch_refs(repo_path)
+              output, status = Utils.popen(command, repo_path)
               durations.stop
               File.write(File.join(repo_path, 'mirror_fetch.last'), Time.now.to_i)
               fail Exception, output unless status.zero?
