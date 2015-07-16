@@ -25,7 +25,7 @@ module PerforceSwarm
 
     def self.git_config_params(config)
       params = ['core.askpass=' + File.join(__dir__, 'bin', 'git-provide-password'), *config['git_config_params']]
-      params.flat_map { |value| ['-c', value] if value }.compact
+      params.flat_map { |value| ['-c', value] if value && !value.empty? }.compact
     end
 
     # extends a plain git url with a Git Fusion extended command, optional repo and optional extras
