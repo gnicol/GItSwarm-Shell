@@ -26,8 +26,17 @@ module PerforceSwarm
       repo = Repo.new(repo_path)
 
       # Set default options and check that this function is being called correctly
-      options = { receive_pack: false, require_block: !options[:receive_pack] }.merge(options)
+      options = { receive_pack: false, require_block: !options[:receive_pack], refs_resolver: nil }.merge(options)
       fail ArgumentError, 'By default a block is required' if options[:require_block] && !block_given?
+
+      # refs_resolver allows you to pass just a list of the involved branches as 'refs' and
+      # later resolve the precise changes you want to make via the refs_resolver callable.
+      # If there are mirrored refs, refs_resolver will be called within the repo write lock.
+      # eg. push(['0123456789abcdef:master'], path_to_repo, refs_resolver: my_proc)
+      # the return value of refs_resolver replaces the 'refs' param passed to push
+      if options[:refs_resolver] && !options[:refs_resolver].respond_to?(:call)
+        fail ArgumentError, 'refs_resolver must be a callable Proc or Lambda'
+      end
 
       if options[:receive_pack]
         socket_path = ENV['WRITE_LOCK_SOCKET']
@@ -40,12 +49,18 @@ module PerforceSwarm
         end
       end
 
-      # if we are mirroring; filter the involved refs if needed
-      refs = mirror_push_refs(repo_path, refs) if repo.mirrored?
+      # filter the involved refs to just the mirrored refs
+      refs = repo.mirrored? ? mirror_push_refs(repo_path, refs) : []
 
-      # no configured mirror or all refs filtered means nutin to do; exit happy!
-      unless repo.mirrored? && !refs.to_a.empty?
-        yield(repo) if block_given?
+      # all refs filtered means nutin to do; exit happy!
+      if refs.to_a.empty?
+        # We still call resolve_refs, in case it needs to do some heavy lifting.
+        if options[:refs_resolver]
+          refs = options[:refs_resolver].call(repo, refs)
+          refs = mirror_push_refs(repo_path, refs)
+        end
+
+        yield(repo, refs) if block_given?
         return
       end
 
@@ -64,6 +79,21 @@ module PerforceSwarm
       locked = write_lock(repo_path, options[:receive_pack])
       durations.stop(:lock)
 
+      # Call the refs_resolver if one was passed. The refs resolver will be used
+      # within the lock, so it can be used for creating new commits without having
+      # to worry about new changes coming into the repo while creating them.
+      if options[:refs_resolver]
+        refs = options[:refs_resolver].call(repo, refs)
+
+        # The resolver may have given us only unmirrored results,
+        # check again for mirrored refs and return if none are found
+        refs = mirror_push_refs(repo_path, refs)
+        if refs.to_a.empty?
+          yield(repo, refs) if block_given?
+          return
+        end
+      end
+
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
       push_output, status = Utils.popen(['git', *git_config_params, 'push', 'mirror', '--', *refs], repo_path, true)
@@ -73,7 +103,7 @@ module PerforceSwarm
       # try to extract the push id. if we don't have one we're done
       push_id = push_output[/^(?:remote: )?Commencing push (\d+) processing.../, 1]
       unless push_id
-        yield(repo) if block_given?
+        yield(repo, refs) if block_given?
         return
       end
 
@@ -103,7 +133,7 @@ module PerforceSwarm
 
           # if we have a success message we are on a newer git-fusion and don't need to hit @status
           if output =~ /^(?:remote: )?Push \d+ completed successfully/
-            yield(repo) if block_given?
+            yield(repo, refs) if block_given?
             return nil  # the nil makes rubocop happy
           end
 
@@ -359,7 +389,11 @@ module PerforceSwarm
       # filter the passed refs to only included items matching at least one of the active ref patterns
       active = File.readlines(File.join(repo_path, 'mirror_refs.active')).map(&:strip)
       refs.select! do |ref|
-        active.find_index { |pattern| File.fnmatch(pattern, ref[%r{.*:(refs/[^/]+/.+$)}, 1] || '') }
+        active.find_index do |pattern|
+          ref = ref[/.*:(.+$)/, 1] || ''
+          ref = "refs/heads/#{ref}" unless ref.empty? || ref =~ %r{^refs/[^/]+/}
+          File.fnmatch(pattern, ref)
+        end
       end
       refs.compact
     rescue
