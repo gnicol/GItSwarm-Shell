@@ -77,7 +77,6 @@ describe PerforceSwarm::GitFusion do
                   https://user:password@localhost:1233
                   https://user:password@localhost/repo)
   invalid_urls = %w(darth-vader
-                    luke-skywalker@*
                     host.foo:/path
                     /local/file/path
                     relative/path
