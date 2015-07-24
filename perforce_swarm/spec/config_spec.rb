@@ -54,7 +54,7 @@ eos
                                                         )
                                     )
       end
-      it 'loads the first configuration entry given if the default is requested but not given' do
+      it 'loads the first configuration entry as the default one' do
         expect(config.git_fusion_entry(nil)['url']).to eq('bar@baz'), config.inspect
       end
     end
@@ -116,6 +116,68 @@ eos
       end
       it 'defaults to disabled' do
         expect(config.git_fusion['enabled']).to be_false, config.inspect
+      end
+    end
+
+    context 'with global block' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  global:
+    user: global-user
+    password: global-password
+    url: http://global-url
+  foo:
+    url: "bar@baz"
+  bar:
+    url: "baz@boop"
+  luke:
+    url: luke@tatooine
+    user: luke
+  vader:
+    url: darth@thedeathstar
+    user: darth
+    password: thedarkside
+  no-url:
+    user: username
+eos
+                                             )
+        )
+      end
+      it 'uses global settings when there are no entry-specific ones (default entry)' do
+        entry = config.git_fusion_entry
+        expect(entry['user']).to eq('global-user'), entry.pretty_inspect
+        expect(entry['password']).to eq('global-password'), entry.pretty_inspect
+        expect(entry['url']).to eq('bar@baz'), entry.pretty_inspect
+      end
+      it 'uses global settings when there are no entry-specific ones (specific entry)' do
+        entry = config.git_fusion_entry('bar')
+        expect(entry['user']).to eq('global-user'), entry.pretty_inspect
+        expect(entry['password']).to eq('global-password'), entry.pretty_inspect
+        expect(entry['url']).to eq('baz@boop'), entry.pretty_inspect
+      end
+      it 'uses specific settings when specified, even when globals exist' do
+        entry = config.git_fusion_entry('vader')
+        expect(entry['user']).to eq('darth'), entry.pretty_inspect
+        expect(entry['password']).to eq('thedarkside'), entry.pretty_inspect
+        expect(entry['url']).to eq('darth@thedeathstar'), entry.pretty_inspect
+      end
+      it 'uses entry-specific settings first, and globals when specific ones are not present' do
+        entry = config.git_fusion_entry('luke')
+        expect(entry['user']).to eq('luke'), entry.pretty_inspect
+        expect(entry['password']).to eq('global-password'), entry.pretty_inspect
+        expect(entry['url']).to eq('luke@tatooine'), entry.pretty_inspect
+      end
+      it 'returns nil for config parameters that are requested but do not exist' do
+        entry = config.git_fusion_entry('luke')
+        expect(entry['foo']).to be_nil, entry.pretty_inspect
+      end
+      it 'does not consider "global" to be a valid entry' do
+        expect { config.git_fusion_entry('global') }.to raise_error(RuntimeError), config.inspect
+      end
+      it 'still considers entries with no URL to be invalid' do
+        expect { config.git_fusion_entry('no-url') }.to raise_error(RuntimeError), config.inspect
       end
     end
   end
