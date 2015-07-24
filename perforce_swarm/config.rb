@@ -12,29 +12,57 @@ module PerforceSwarm
       git_fusion['enabled']
     end
 
+    def global_entry
+      global  = git_fusion['global'] || {}
+
+      # ensure defaults are set correctly, and url is removed from the global config
+      global['user']     ||= 'gitswarm'
+      global['password'] ||= ''
+      global['url']        = nil
+      global
+    end
+
     def git_fusion_entry(id = nil)
-      config = git_fusion
+      entries = valid_entries
 
-      # remove any keys that are not hashes or don't have a URL defined
-      stripped = config
-      stripped.delete_if { |_key, value| !value.is_a?(Hash) || value['url'].nil? || value['url'].empty? }
+      fail 'No Git Fusion configuration found.'               if entries.nil? || entries.empty?
+      fail "Git Fusion config entry '#{id}' does not exist."  if id && !entries[id]
+      fail "Git Fusion config entry '#{id}' is malformed."    if id && git_fusion[id] && !entries[id]
 
-      # normalize default to nil so we'll pick the first entry if no 'default' key is present
-      id = nil if id == 'default'
+      # if no id was specified, use the first entry
+      id ||= entries.first[0]
 
-      fail 'No Git Fusion configuration found.'               if stripped.nil? || stripped.empty?
-      fail "Git Fusion config entry '#{id}' does not exist."  if id && !stripped[id]
-      fail "Git Fusion config entry '#{id}' is malformed."    if id && config[id] && !stripped[id]
+      # create the requested entry
+      ConfigEntry.new(entries[id], global_entry)
+    end
 
-      # if no id was specified, use 'default' if that key exists
-      # otherwise, just use the first entry
-      id ||= 'default' if stripped['default']
-      id ||= stripped.first[0]
+    def valid_entries
+      # remove any keys that are not hashes, don't have a URL defined or are our 'global' block
+      entries = git_fusion.clone
+      entries.delete_if do |key, value|
+        !value.is_a?(Hash) || value['url'].nil? || value['url'].empty? || key == 'global'
+      end
 
-      # pull out the selected entry and ensure it has its id on it
-      entry       = stripped[id]
-      entry['id'] = id
-      entry
+      # add an 'id' field to each key
+      entries.each_key { |id| entries[id]['id'] = id }
+    end
+  end
+
+  class ConfigEntry
+    attr_reader :entry, :global
+    def initialize(entry, global = {})
+      @entry  = entry
+      @global = global
+    end
+
+    def [](key)
+      return entry[key]  if entry[key]
+      return global[key] if global[key]
+      nil
+    end
+
+    def []=(key, value)
+      entry[key] = value
     end
   end
 end
