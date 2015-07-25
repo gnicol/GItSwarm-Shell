@@ -28,10 +28,11 @@ module PerforceSwarm
     def global_entry
       global  = git_fusion['global'] || {}
 
-      # ensure defaults are set correctly, and url is removed from the global config
+      # ensure defaults are set correctly, and url/label are removed from the global config
       global['user']     ||= 'gitswarm'
       global['password'] ||= ''
       global['url']        = nil
+      global['label']      = nil
       global
     end
 
@@ -45,25 +46,26 @@ module PerforceSwarm
       id ||= entries.first[0]
 
       # create the requested entry
-      ConfigEntry.new(entries[id], global_entry)
+      GitFusion::ConfigEntry.new(entries[id], global_entry)
     end
   end
 
-  class ConfigEntry
-    attr_reader :entry, :global
-    def initialize(entry, global = {})
-      @entry  = entry
-      @global = global
-    end
+  module GitFusion
+    class ConfigEntry
+      def initialize(entry, global = {})
+        @entry  = entry
+        @global = global
+      end
 
-    def [](key)
-      return entry[key]  if entry[key]
-      return global[key] if global[key]
-      nil
-    end
+      def [](key)
+        return @entry[key]  if @entry[key]
+        return @global[key] if @global[key]
+        nil
+      end
 
-    def []=(key, value)
-      entry[key] = value
+      def []=(key, value)
+        @entry[key] = value
+      end
     end
   end
 end
