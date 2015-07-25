@@ -180,5 +180,40 @@ eos
         expect { config.git_fusion_entry('no-url') }.to raise_error(RuntimeError), config.inspect
       end
     end
+
+    context 'with label values' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  global:
+    user: global-user
+    password: global-password
+    url: http://global-url
+    label: Global label
+  foo:
+    url: "bar@baz"
+    label: Default config entry called 'foo'
+  bar:
+    url: "baz@boop"
+  luke:
+    url: luke@tatooine
+    user: luke
+  vader:
+    url: darth@thedeathstar
+    user: darth
+    password: thedarkside
+    label: Death star plans are stored in this repo.
+  no-url:
+    user: username
+eos
+                                             )
+        )
+      end
+      it 'allows a free-form string to be optionally used as a label for each block, ignoring global labels' do
+        expect(config.git_fusion_entry['label']).to eq("Default config entry called 'foo'"), config.inspect
+        expect(config.git_fusion_entry('bar')['label']).to be_nil, config.inspect
+      end
+    end
   end
 end
