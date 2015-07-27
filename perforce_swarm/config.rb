@@ -12,29 +12,34 @@ module PerforceSwarm
       git_fusion['enabled']
     end
 
-    def git_fusion_entry(id = nil)
-      config = git_fusion
+    def git_fusion_entries
+      entries = git_fusion.select do |_id, value|
+        value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty?
+      end
+      entries.each do |id, _value|
+        entries[id]['id'] = id
+      end
 
-      # remove any keys that are not hashes or don't have a URL defined
-      stripped = config
-      stripped.delete_if { |_key, value| !value.is_a?(Hash) || value['url'].nil? || value['url'].empty? }
+      fail 'No Git Fusion configuration found.' if entries.empty?
+
+      entries
+    end
+
+    def git_fusion_entry(id = nil)
+      entries = git_fusion_entries
 
       # normalize default to nil so we'll pick the first entry if no 'default' key is present
       id = nil if id == 'default'
 
-      fail 'No Git Fusion configuration found.'               if stripped.nil? || stripped.empty?
-      fail "Git Fusion config entry '#{id}' does not exist."  if id && !stripped[id]
-      fail "Git Fusion config entry '#{id}' is malformed."    if id && config[id] && !stripped[id]
+      fail "Git Fusion config entry '#{id}' does not exist."  if id && !git_fusion[id]
+      fail "Git Fusion config entry '#{id}' is malformed."    if id && !entries[id]
 
       # if no id was specified, use 'default' if that key exists
       # otherwise, just use the first entry
-      id ||= 'default' if stripped['default']
-      id ||= stripped.first[0]
+      id ||= 'default' if entries['default']
+      id ||= entries.first[0]
 
-      # pull out the selected entry and ensure it has its id on it
-      entry       = stripped[id]
-      entry['id'] = id
-      entry
+      entries[id]
     end
   end
 end
