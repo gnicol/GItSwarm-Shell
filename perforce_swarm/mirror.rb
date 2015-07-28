@@ -116,7 +116,7 @@ module PerforceSwarm
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
         wait = repo.mirror_url.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
-        wait = repo.mirror_url.gsub(%r{:([^:]*/?$)}, ':@wait@\1@' + push_id) if repo.mirror_url == wait
+        wait = repo.mirror_url.gsub(/:([^:]*\/?$)/, ':@wait@\1@' + push_id) if repo.mirror_url == wait
         if repo.mirror_url == wait
           puts message = "Unable to add @wait@ to mirror url: #{repo.mirror_url}"
           fail Exception, message
@@ -168,7 +168,7 @@ module PerforceSwarm
       #
       # The regex matches the leading portion and captures the section label e.g. 'Finding child commits...' as \1
       # It scans over more lines with that same title capturing the last one in \2 and setting that to be the block.
-      push_output.gsub!(%r{Perforce: +\d+% +\( *\d+/\d+\) (.*?)\n([^\n]+\1\n)+}m, '\2') if push_output
+      push_output.gsub!(/Perforce: +\d+% +\( *\d+\/\d+\) (.*?)\n([^\n]+\1\n)+/m, '\2') if push_output
 
       message = "Push: #{repo_path}\n"
       message += "#{refs * "\n"}\n" if $! # skips refs if an exception occured, they were already logged

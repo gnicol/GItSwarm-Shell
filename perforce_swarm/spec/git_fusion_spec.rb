@@ -220,7 +220,7 @@ describe PerforceSwarm::GitFusion do
     it 'strips passwords from the URL by default' do
       valid_urls.each do |url|
         output   = PerforceSwarm::GitFusion::URL.new(url)
-        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expected = exceptions[url] || url.gsub(/\/$|:pass(word)?/, '')
         expect(output.strip_password(true).to_s).to eq(expected),
                                                     "#{url if url != expected} '#{expected}' => '#{output}'"
       end
@@ -415,7 +415,7 @@ describe PerforceSwarm::GitFusion do
     it 'does not mutate URLs unless you ask nicely' do
       valid_urls.each do |url|
         output   = PerforceSwarm::GitFusion::URL.new(url)
-        expected = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expected = exceptions[url] || url.gsub(/\/$|:pass(word)?/, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end
     end
@@ -423,7 +423,7 @@ describe PerforceSwarm::GitFusion do
     it 'does not strip the password from the URL if strip_password is false' do
       valid_urls.each do |url|
         output   = PerforceSwarm::GitFusion::URL.new(url)
-        expected = exceptions[url] || url.gsub(%r{/$}, '')
+        expected = exceptions[url] || url.gsub(/\/$/, '')
         expect(output.strip_password(false).to_s)
           .to eq(expected), "#{url if url != expected} '#{expected}' => '#{output}'"
       end
@@ -433,7 +433,7 @@ describe PerforceSwarm::GitFusion do
       valid_urls.each do |url|
         output     = PerforceSwarm::GitFusion::URL.new('user@host')
         output.parse(url)
-        expected   = exceptions[url] || url.gsub(%r{/$|:pass(word)?}, '')
+        expected   = exceptions[url] || url.gsub(/\/$|:pass(word)?/, '')
         expect(output.to_s).to eq(expected), "#{url if url != expected} #{expected} => #{output}"
       end
     end
