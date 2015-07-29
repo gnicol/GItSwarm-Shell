@@ -13,7 +13,7 @@ module PerforceSwarm
 
     def self.validate_entries(min_version = nil)
       fail "Invalid min_version specified: #{min_version}"  if min_version && !Gem::Version.correct?(min_version)
-      min_version = Gem::Version.new(version)               if min_version
+      min_version = Gem::Version.new(min_version)               if min_version
 
       # For every valid Git Fusion instance configuration attempt connection
       # and save appropriate result into an array for further processing
@@ -21,10 +21,10 @@ module PerforceSwarm
       PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
         begin
           # prime valid to false; should something go awry it stays there
-          results[id]            = { valid: false, config: config }
+          results[id]            = { valid: false, config: config, id: id }
           # verify we can run info and then parse out the version details
           results[id][:info]    = run(id, 'info')
-          results[id][:version] = output[/Git Fusion\/(\d{4})\.(\d+)/, 1] || false
+          results[id][:version] = results[id][:info][/Git Fusion\/(\d{4}\.\d+)/, 1] || false
           results[id][:valid]   = true
 
           # if we were given a min_version and could pull a git-fusion info version, enforce it
@@ -37,6 +37,8 @@ module PerforceSwarm
           results[id][:valid] = false
           results[id][:error] = ex.message
         end
+
+        yield results[id] if block_given?
       end
       results
     end
