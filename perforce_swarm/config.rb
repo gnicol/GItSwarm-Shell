@@ -13,8 +13,8 @@ module PerforceSwarm
     end
 
     def git_fusion_entries
-      entries = git_fusion.select do |_id, value|
-        value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty?
+      entries = git_fusion.select do |id, value|
+        value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty? && id != 'global'
       end
       entries.each do |id, _value|
         entries[id]['id'] = id
@@ -25,21 +25,47 @@ module PerforceSwarm
       entries
     end
 
+    def global_entry
+      global  = git_fusion['global'] || {}
+
+      # ensure defaults are set correctly, and url/label are removed from the global config
+      global['user']     ||= 'gitswarm'
+      global['password'] ||= ''
+      global.delete('url')
+      global.delete('label')
+      global
+    end
+
     def git_fusion_entry(id = nil)
       entries = git_fusion_entries
-
-      # normalize default to nil so we'll pick the first entry if no 'default' key is present
-      id = nil if id == 'default'
 
       fail "Git Fusion config entry '#{id}' does not exist."  if id && !git_fusion[id]
       fail "Git Fusion config entry '#{id}' is malformed."    if id && !entries[id]
 
-      # if no id was specified, use 'default' if that key exists
-      # otherwise, just use the first entry
-      id ||= 'default' if entries['default']
+      # if no id was specified, use the first entry
       id ||= entries.first[0]
 
-      entries[id]
+      # create the requested entry
+      GitFusion::ConfigEntry.new(entries[id], global_entry)
+    end
+  end
+
+  module GitFusion
+    class ConfigEntry
+      def initialize(entry, global = {})
+        @entry  = entry
+        @global = global
+      end
+
+      def [](key)
+        return @entry[key]  if @entry[key]
+        return @global[key] if @global[key]
+        nil
+      end
+
+      def []=(key, value)
+        @entry[key] = value
+      end
     end
   end
 end
