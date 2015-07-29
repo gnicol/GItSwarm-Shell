@@ -16,13 +16,13 @@ module PerforceSwarm
       entries = git_fusion.select do |id, value|
         value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty? && id != 'global'
       end
-      entries.each do |id, _value|
-        entries[id]['id'] = id
-      end
 
       fail 'No Git Fusion configuration found.' if entries.empty?
-
-      entries
+      global = global_entry
+      entries.each do |id, value|
+        value['id'] = id
+        entries[id] = GitFusion::ConfigEntry.new(value, global)
+      end
     end
 
     def global_entry
@@ -57,7 +57,22 @@ module PerforceSwarm
         @global = global
       end
 
+      # returns the password (or empty string if not found) with the following priority:
+      #  1) entry-specific password
+      #  2) password specified in the entry-specific URL
+      #  3) global password
+      def git_fusion_password
+        return @entry['password'] if @entry['password']
+
+        url_password = PerforceSwarm::GitFusion::URL.new(@entry['url']).password
+        return url_password if url_password
+
+        @global['password'] || ''
+      end
+
       def [](key)
+        # if we're specifically looking for 'password' or 'git_fusion_password', we handle it differently
+        return git_fusion_password if key == 'password' || key == 'git_fusion_password'
         return @entry[key]  if @entry[key]
         return @global[key] if @global[key]
         nil
