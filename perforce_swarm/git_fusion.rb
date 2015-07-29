@@ -21,22 +21,21 @@ module PerforceSwarm
       PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
         begin
           # prime valid to false; should something go awry it stays there
-          result[id]            = { valid: false, config: config }
-
+          results[id]            = { valid: false, config: config }
           # verify we can run info and then parse out the version details
-          result[id]['info']    = run(id, 'info')
-          result[id]['version'] = output[/Git Fusion\/(\d{4})\.(\d+)/, 1] || false
-          result[id]['valid']   = true
+          results[id][:info]    = run(id, 'info')
+          results[id][:version] = output[/Git Fusion\/(\d{4})\.(\d+)/, 1] || false
+          results[id][:valid]   = true
 
           # if we were given a min_version and could pull a git-fusion info version, enforce it
-          version = Gem::Version.new(result[id]['version']) if Gem::Version.correct?(result[id]['version'])
+          version = Gem::Version.new(results[id]['version']) if Gem::Version.correct?(results[id]['version'])
           if min_version && version && version < min_version
-            result[id]['outdated'] = true
-            result[id]['valid']    = false
+            results[id][:outdated] = true
+            results[id][:valid]    = false
           end
         rescue RunError => ex
-          result[id]['valid'] = false
-          result[id]['error'] = ex.message
+          results[id][:valid] = false
+          results[id][:error] = ex.message
         end
       end
       results
