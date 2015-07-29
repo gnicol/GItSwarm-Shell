@@ -5,6 +5,43 @@ require_relative 'utils'
 
 module PerforceSwarm
   module GitFusion
+    class RunError < RuntimeError
+    end
+
+    class RunAccessError < RunError
+    end
+
+    def self.validate_entries(min_version = nil)
+      fail "Invalid min_version specified: #{min_version}"  if min_version && !Gem::Version.correct?(min_version)
+      min_version = Gem::Version.new(version)               if min_version
+
+      # For every valid Git Fusion instance configuration attempt connection
+      # and save appropriate result into an array for further processing
+      results = {}
+      PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
+        begin
+          # prime valid to false; should something go awry it stays there
+          result[id]            = { valid: false, config: config }
+
+          # verify we can run info and then parse out the version details
+          result[id]['info']    = run(id, 'info')
+          result[id]['version'] = output[/Git Fusion\/(\d{4})\.(\d+)/, 1] || false
+          result[id]['valid']   = true
+
+          # if we were given a min_version and could pull a git-fusion info version, enforce it
+          version = Gem::Version.new(result[id]['version']) if Gem::Version.correct?(result[id]['version'])
+          if min_version && version && version < min_version
+            result[id]['outdated'] = true
+            result[id]['valid']    = false
+          end
+        rescue RunError => ex
+          result[id]['valid'] = false
+          result[id]['error'] = ex.message
+        end
+      end
+      results
+    end
+
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
@@ -13,8 +50,10 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
-          silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
+          # Generic error message -> fatal: ERROR, we should ignore repository errors
+          next if line =~ /^fatal: repository/ || silenced
+          fail RunAccessError, $LAST_MATCH_INFO['error'] if line =~ /^fatal: (?<error>.*)$/
           output += line
           print line       if stream_output
           block.call(line) if block
