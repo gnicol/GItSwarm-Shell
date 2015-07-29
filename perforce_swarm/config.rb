@@ -31,8 +31,8 @@ module PerforceSwarm
       # ensure defaults are set correctly, and url/label are removed from the global config
       global['user']     ||= 'gitswarm'
       global['password'] ||= ''
-      global['url']        = nil
-      global['label']      = nil
+      global.delete('url')
+      global.delete('label')
       global
     end
 
