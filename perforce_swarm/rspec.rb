@@ -37,7 +37,7 @@ RSpec.configure do |config|
   # @return [String] -  the relative filepath for the test
   # relative to the folder which contains the spec folder
   def test_filepath(metadata)
-    metadata[:file_path].gsub(%r{^.*/spec}, './spec')
+    metadata[:file_path].gsub(/^.*\/spec/, './spec')
   end
 
   # string label used to uniquely identify an overridden test
