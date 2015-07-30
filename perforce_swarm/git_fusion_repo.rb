@@ -7,6 +7,8 @@ module PerforceSwarm
     # returns a hash mapping repo name to description for all repos for the given Git Fusion config entry
     def self.list(id = nil)
       parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
+    rescue RunError
+      {}
     end
 
     # largely a separate method for testability
