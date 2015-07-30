@@ -24,7 +24,8 @@ module PerforceSwarm
           results[id]            = { valid: false, config: config, id: id }
           # verify we can run info and then parse out the version details
           results[id][:info]    = run(id, 'info')
-          results[id][:version] = results[id][:info][/Git Fusion\/(\d{4}\.\d+)/, 1] || false
+          # Version info: Rev. Git Fusion/2015.2/1128995 (2015/06/23).
+          results[id][:version] = results[id][:info].clone.gsub!(%r{^Rev\. Git Fusion/(\d{4}\.[^/]+)/(\d+)}, '\1.\2')
           results[id][:valid]   = true
 
           # if we were given a min_version and could pull a git-fusion info version, enforce it
@@ -51,10 +52,10 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
+          # throw if we get an error different from 'repository..'
+          fail RunAccessError, $LAST_MATCH_INFO['error'] if line =~ /^fatal: (?!repository)(?<error>.*)$/
+          silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
-          # Generic error message -> fatal: ERROR, we should ignore repository errors
-          next if line =~ /^fatal: repository/ || silenced
-          fail RunAccessError, $LAST_MATCH_INFO['error'] if line =~ /^fatal: (?<error>.*)$/
           output += line
           print line       if stream_output
           block.call(line) if block
