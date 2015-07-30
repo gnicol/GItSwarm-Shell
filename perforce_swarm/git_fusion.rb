@@ -72,14 +72,15 @@ module PerforceSwarm
     class URL
       attr_accessor :url, :delimiter
       attr_reader :scheme, :password
-      attr_writer :extra, :strip_password
+      attr_writer :extra, :strip_password, :user
 
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
 
       def initialize(url)
-        parse(url)
         @strip_password = true
+        @user           = nil
+        parse(url)
       end
 
       # parses the given URL, and sets instance variables for base url (without path), command, repo
@@ -118,12 +119,14 @@ module PerforceSwarm
         fail 'User must be specified if scp syntax is used.' if parsed.scheme == 'scp' && !parsed.user
         fail "Invalid URL specified: #{url}." if parsed.host.nil?
 
-        # construct the base URL
+        # construct the base URL, grabbing the specified user, if any
         @scheme = parsed.scheme
         if @scheme == 'scp'
+          @user    = parsed.user
           self.url = parsed.user + '@' + parsed.host
         else
           self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          @user     = parsed.user
           @password = parsed.password
         end
 
@@ -206,6 +209,14 @@ module PerforceSwarm
         @strip_password
       end
 
+      def user(*args)
+        if args.length > 0
+          self.user = args[0]
+          return self
+        end
+        @user
+      end
+
       def clear_path
         self.repo = nil
         clear_command
@@ -221,20 +232,34 @@ module PerforceSwarm
       def to_s
         fail 'Extra requires both command and repo to be specified.' if extra && (!command || !repo)
 
-        # strip the password out of the URL if we've been asked to
-        if @scheme != 'scp' && strip_password
-          parsed = URI.parse(url)
-          str    = parsed.scheme + '://' + (parsed.user ? parsed.user + '@' : '') + host(parsed)
-        else
-          str = url
-        end
-
         # build and put @ and params in the right spots
+        str  = build_url
         str += delimiter        if pathed?
         str += '@' + command    if command
         str += '@'              if command && repo
         str += repo             if repo
         str += '@' + extra.to_s if extra
+        str
+      end
+
+      def build_url
+        if scheme != 'scp'
+          # parse and set username/password fields as needed - we've already extracted user/password during init
+          parsed          = URI.parse(url)
+          parsed.user     = @user
+          parsed.password = @password
+
+          # build and include the correct userinfo
+          userinfo  = parsed.user ? parsed.user : ''
+          userinfo += parsed.password && !strip_password ? ':' + parsed.password : ''
+          str       = parsed.scheme + '://' + (!userinfo.empty? ? userinfo + '@' : '') + host(parsed)
+        else
+          # url is simply user@host
+          parsed = url.split('@', 2)
+          puts parsed.pretty_inspect
+          puts "USER: #{user.inspect}"
+          str    = @user + '@' + parsed[1]
+        end
         str
       end
 
