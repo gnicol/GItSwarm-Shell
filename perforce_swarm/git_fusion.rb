@@ -29,7 +29,7 @@ module PerforceSwarm
           results[id][:valid]   = true
 
           # if we were given a min_version and could pull a git-fusion info version, enforce it
-          version = Gem::Version.new(results[id]['version']) if Gem::Version.correct?(results[id]['version'])
+          version = Gem::Version.new(results[id][:version]) if Gem::Version.correct?(results[id][:version])
           if min_version && version && version < min_version
             results[id][:outdated] = true
             results[id][:valid]    = false
