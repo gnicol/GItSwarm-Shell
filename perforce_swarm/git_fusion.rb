@@ -25,7 +25,9 @@ module PerforceSwarm
           # verify we can run info and then parse out the version details
           results[id][:info]    = run(id, 'info')
           # Version info: Rev. Git Fusion/2015.2/1128995 (2015/06/23).
-          results[id][:version] = results[id][:info][%r{^Rev\. Git Fusion/(\d{4}\.[^/]+)/(\d+)}, 1]
+          # Support version patches by converting to 2015.2.1128995
+          info_version = results[id][:info].match(%r{^Rev\. Git Fusion/(\d{4}\.[^/]+)/(\d+)})
+          results[id][:version] = "#{info_version[1]}.#{info_version[2]}"
           results[id][:valid]   = true
 
           # if we were given a min_version and could pull a git-fusion info version, enforce it
