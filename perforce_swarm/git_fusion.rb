@@ -259,8 +259,6 @@ module PerforceSwarm
         else
           # url is simply user@host
           parsed = url.split('@', 2)
-          puts parsed.pretty_inspect
-          puts "USER: #{user.inspect}"
           str    = @user + '@' + parsed[1]
         end
         str
