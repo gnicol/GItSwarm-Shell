@@ -13,7 +13,7 @@ module PerforceSwarm
 
     def self.validate_entries(min_version = nil)
       fail "Invalid min_version specified: #{min_version}"  if min_version && !Gem::Version.correct?(min_version)
-      min_version = Gem::Version.new(min_version)               if min_version
+      min_version = Gem::Version.new(min_version)           if min_version
 
       # For every valid Git Fusion instance configuration attempt connection
       # and save appropriate result into an array for further processing
@@ -54,16 +54,28 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
-          # throw if we get an error different from 'repository..'
-          fail RunAccessError, $LAST_MATCH_INFO['error'] if line =~ /^fatal: (?!repository)(?<error>.*)$/
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
-          output += line
+          output    += line
           print line       if stream_output
           block.call(line) if block
         end
-        return output.chomp
+        return validate_git_output(command, output.chomp)
       end
+    end
+
+    def self.validate_git_output(command, output)
+      if command == 'list'
+        # each line should correspond to a Git Fusion repository list item
+        output.lines.each do |line|
+          fail RunError, output unless
+              line.match(/^(?<name>[^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(?<description>.+?))?$/)
+        end
+      elsif command == 'info'
+        # the first line should be boilerplate
+        fail RunError, output unless output.start_with?('Perforce - The Fast Software')
+      end
+      output
     end
 
     def self.git_config_params(config)
