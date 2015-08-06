@@ -390,9 +390,9 @@ module PerforceSwarm
       active = File.readlines(File.join(repo_path, 'mirror_refs.active')).map(&:strip)
       refs.select! do |ref|
         active.find_index do |pattern|
-          ref = ref[/.*:(.+$)/, 1] || ''
-          ref = "refs/heads/#{ref}" unless ref.empty? || ref =~ %r{^refs/[^/]+/}
-          File.fnmatch(pattern, ref)
+          head = ref[/.*:(.+$)/, 1] || ''
+          head = "refs/heads/#{head}" unless head.empty? || head =~ %r{^refs/[^/]+/}
+          File.fnmatch(pattern, head)
         end
       end
       refs.compact
