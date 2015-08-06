@@ -5,6 +5,47 @@ require_relative 'utils'
 
 module PerforceSwarm
   module GitFusion
+    class RunError < RuntimeError
+    end
+
+    class RunAccessError < RunError
+    end
+
+    def self.validate_entries(min_version = nil)
+      fail "Invalid min_version specified: #{min_version}"  if min_version && !Gem::Version.correct?(min_version)
+      min_version = Gem::Version.new(min_version)               if min_version
+
+      # For every valid Git Fusion instance configuration attempt connection
+      # and save appropriate result into an array for further processing
+      results = {}
+      PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
+        begin
+          # prime valid to false; should something go awry it stays there
+          results[id]            = { valid: false, config: config, id: id }
+          # verify we can run info and then parse out the version details
+          results[id][:info]    = run(id, 'info')
+          # Version info: Rev. Git Fusion/2015.2/1128995 (2015/06/23).
+          # Support version patches by converting to 2015.2.1128995
+          info_version = results[id][:info].match(%r{^Rev\. Git Fusion/(\d{4}\.[^/]+)/(\d+)})
+          results[id][:version] = "#{info_version[1]}.#{info_version[2]}"
+          results[id][:valid]   = true
+
+          # if we were given a min_version and could pull a git-fusion info version, enforce it
+          version = Gem::Version.new(results[id][:version]) if Gem::Version.correct?(results[id][:version])
+          if min_version && version && version < min_version
+            results[id][:outdated] = true
+            results[id][:valid]    = false
+          end
+        rescue RunError => ex
+          results[id][:valid] = false
+          results[id][:error] = ex.message
+        end
+
+        yield results[id] if block_given?
+      end
+      results
+    end
+
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
@@ -13,6 +54,8 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
+          # throw if we get an error different from 'repository..'
+          fail RunAccessError, $LAST_MATCH_INFO['error'] if line =~ /^fatal: (?!repository)(?<error>.*)$/
           silenced ||= line =~ /^fatal: /
           next if line =~ /^Cloning into/ || silenced
           output += line
