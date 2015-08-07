@@ -15,10 +15,10 @@ export PATH="$HOME/.rbenv/bin:$PATH"
 eval "$(rbenv init -)"
 
 function bomb_if_bad {
-	echo "$@" 
+	"$@" 2>&1
 	local status=$?
 	if [ $status -ne 0 ]; then
-		echo "::: CONFLICT!!! :::" 
+		echo "::: CONFLICT!!! :::"
 		exit 1
 	fi
 	return $status
@@ -32,9 +32,9 @@ REPODIR="${HOME}/integration-ce/${REPO}"
 
 # Logs
 now=$(date "+%Y-%m-%d-%H%M")
-ruby_loc=`which ruby`                                         
-ruby_ver=`ruby -v`                                            
-bundle_loc=`which bundle`   
+ruby_loc=`which ruby`
+ruby_ver=`ruby -v`
+bundle_loc=`which bundle`
 echo "::: ${now} Integrating Community master/stable into ${REPO} :::"
 echo "::: Using ${ruby_ver} from ${ruby_loc} :::"
 echo "::: Bundler is at: ${bundle_loc} :::"
@@ -42,11 +42,11 @@ echo "::: Bundler is at: ${bundle_loc} :::"
 # Update the master, prep, integration-ce and integration-prep-ce
 # branches from origin
 echo "::: Fetching from remotes :::"
-git fetch --all 
+git fetch --all
 echo "::: Merging origin changes, Should only be fast-forwards :::"
 echo "::: Merging origin/master -> master :::"
 git checkout master
-git rebase origin/master 
+git rebase origin/master
 echo "::: Merging origin/prep -> prep :::"
 git checkout prep
 git rebase origin/prep
