@@ -65,15 +65,9 @@ module PerforceSwarm
     end
 
     def self.validate_git_output(command, output)
-      if command == 'list'
-        # each line should correspond to a Git Fusion repository list item
-        output.lines.each do |line|
-          fail RunError, output unless
-              line.match(/^(?<name>[^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(?<description>.+?))?$/)
-        end
-      elsif command == 'info'
+      if command == 'info'
         # the first line should be boilerplate
-        fail RunError, output unless output.start_with?('Perforce - The Fast Software')
+        fail RunError, output[/^fatal: (?<error>.*)$/] unless output.start_with?('Perforce - The Fast Software')
       end
       output
     end
