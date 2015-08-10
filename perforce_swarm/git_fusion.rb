@@ -54,7 +54,7 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
-          silenced ||= line =~ /^fatal: /
+          silenced ||= line =~ /^fatal: Could not read from remote repository\./
           next if line =~ /^Cloning into/ || silenced
           output    += line
           print line       if stream_output
@@ -65,7 +65,12 @@ module PerforceSwarm
     end
 
     def self.validate_git_output(command, output)
-      if command == 'info'
+      if command == 'list'
+        # we're looking for a list of repos, or the message 'no repositories found'
+        valid = output.match(/^no repositories found$/) ||
+                output.lines.all? { |line| line.match(/^([^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(.+?))?$/) }
+        fail RunError, output unless valid
+      elsif command == 'info'
         # the first line should be boilerplate
         fail RunError, output[/^fatal: (?<error>.*)$/] unless output.start_with?('Perforce - The Fast Software')
       end
