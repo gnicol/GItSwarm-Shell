@@ -498,8 +498,6 @@ describe PerforceSwarm::GitFusion do
   end
 
   describe :version_check do
-    let(:config) { PerforceSwarm::GitlabConfig.new }
-
     context 'without global settings' do
       before do
         config.instance_variable_set(:@config, YAML.load(<<eos
@@ -517,11 +515,13 @@ eos
                                              )
         )
       end
-      it 'returns valid and not outdated if version 2015.2' do
+      it 'returns valid data and not outdated if version 2015.2' do
         git_fusion = PerforceSwarm::GitFusion
         git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.2/1128995 (2015/06/23)')
-        git_fusion.validate_entries('2015.2').each do | _instance, values |
+        current_config = PerforceSwarm::GitlabConfig.new.git_fusion
+        git_fusion.validate_entries('2015.2').each do | instance, values |
           expect(values[:valid]).to be_true
+          expect(values[:config]['url']).to eq(current_config[instance]['url'])
           expect(values[:version]).to eq('2015.2.1128995')
           expect(values[:outdated]).to be_false
         end
@@ -550,8 +550,8 @@ eos
       it 'fails if version specified is not valid' do
         git_fusion = PerforceSwarm::GitFusion
         git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.1/121 (2015/05/21)')
-        expect{ git_fusion.validate_entries('A2015/2/122') }
-            .to raise_error(RuntimeError, 'Invalid min_version specified: A2015/2/122')
+        expect { git_fusion.validate_entries('A2015/2/122') }
+          .to raise_error(RuntimeError, 'Invalid min_version specified: A2015/2/122')
       end
 
       it 'returns error message caught from git command execution' do
@@ -565,4 +565,3 @@ eos
     end
   end
 end
-
