@@ -515,6 +515,18 @@ eos
                                              )
         )
       end
+      it 'doesnt validate version if none specified' do
+        git_fusion = PerforceSwarm::GitFusion
+        git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.2/1128995 (2015/06/23)')
+        current_config = PerforceSwarm::GitlabConfig.new.git_fusion
+        git_fusion.validate_entries.each do | instance, values |
+          expect(values[:valid]).to be_true
+          expect(values[:config]['url']).to eq(current_config[instance]['url'])
+          expect(values[:version]).to eq('2015.2.1128995')
+          expect(values[:outdated]).to be_nil
+        end
+      end
+
       it 'returns valid data and not outdated if version 2015.2' do
         git_fusion = PerforceSwarm::GitFusion
         git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.2/1128995 (2015/06/23)')
