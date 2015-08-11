@@ -54,7 +54,7 @@ module PerforceSwarm
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
-          silenced ||= line =~ /^fatal: Could not read from remote repository\./
+          silenced ||= line =~ /^fatal: (repository|Could not read from remote repository\.)/
           next if line =~ /^Cloning into/ || silenced
           output    += line
           print line       if stream_output
