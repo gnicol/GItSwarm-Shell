@@ -56,7 +56,7 @@ module PerforceSwarm
         @global = global
 
         # normalize the 'perforce' entry to an empty hash
-        @entry['perforce'] ||= {}
+        @entry['perforce'] = {} unless @entry['perforce'].is_a?(Hash)
       end
 
       def global
@@ -64,7 +64,7 @@ module PerforceSwarm
         global_config               = @global.is_a?(Hash) ? @global.clone : {}
         global_config['user']     ||= 'gitswarm'
         global_config['password'] ||= ''
-        global_config['perforce'] ||= {}
+        global_config['perforce']  = {} unless global_config['perforce'].is_a?(Hash)
         global_config.delete('url')
         global_config.delete('label')
         global_config
@@ -88,8 +88,8 @@ module PerforceSwarm
       end
 
       # returns the perforce username (or 'gitswarm' if not found)
-      def perforce_username
-        url_user = @entry['url'].scheme != 'scp' && @entry['url'].user
+      def perforce_user
+        url_user = url.user unless url.scheme == 'scp'
         @entry['perforce']['user'] ||
           @entry['user'] ||
           url_user ||
