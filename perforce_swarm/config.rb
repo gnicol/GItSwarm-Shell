@@ -54,6 +54,9 @@ module PerforceSwarm
       def initialize(entry, global = {})
         @entry  = entry
         @global = global
+
+        # normalize the 'perforce' entry to an empty hash
+        @entry['perforce'] ||= {}
       end
 
       def global
@@ -61,47 +64,37 @@ module PerforceSwarm
         global_config               = @global.is_a?(Hash) ? @global.clone : {}
         global_config['user']     ||= 'gitswarm'
         global_config['password'] ||= ''
+        global_config['perforce'] ||= {}
         global_config.delete('url')
         global_config.delete('label')
         global_config
       end
 
-      def perforce
-        @entry['perforce'] || {}
-      end
-
-      def global_perforce
-        global['perforce'] || {}
-      end
-
       # returns the password (or empty string if not found) with the following priority:
       #  1) entry-specific password
       #  2) password specified in the entry-specific URL
-      #  3) global password
-      #  4) empty string
+      #  3) global password (normalized to empty string if not present)
       def git_fusion_password
-        @entry['password'] || url.password || global['password'] || ''
+        @entry['password'] || url.password || global['password']
       end
 
-      # returns the perforce password (or the empty string if not found) with the following priority:
-      #  1) entry-specific perforce password
-      #  2) entry-specific password
-      #  3) password specified in the entry-specific URL
-      #  4) global perforce password
-      #  5) global password (gives empty string as global default if not specified)
+      # returns the perforce password (or the empty string if not found)
       def perforce_password
-        perforce['password'] || @entry['password'] || url.password || global_perforce['password'] || global['password']
+        @entry['perforce']['password'] ||
+          @entry['password'] ||
+          url.password ||
+          global['perforce']['password'] ||
+          global['password'] # normalized to the empty string if it doesn't exist
       end
 
-      # returns the perforce username (or 'gitswarm' if not found) with the following priority:
-      #  1) entry-specific perforce user
-      #  2) entry-specific user
-      #  3) username specified in the entry-specific URL if it is HTTP/S
-      #  4) global perforce user
-      #  5) global user (gives 'gitswarm' as global default if not specified)
+      # returns the perforce username (or 'gitswarm' if not found)
       def perforce_username
-        url_user             = @entry['url'].scheme != 'scp' && @entry['url'].user
-        perforce['user'] || @entry['user'] || url_user || global_perforce['user'] || global['user']
+        url_user = @entry['url'].scheme != 'scp' && @entry['url'].user
+        @entry['perforce']['user'] ||
+          @entry['user'] ||
+          url_user ||
+          global['perforce']['user'] ||
+          global['user'] # normalized to 'gitswarm' if it doesn't exist
       end
 
       def url
