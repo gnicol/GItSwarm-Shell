@@ -99,4 +99,47 @@ eos
       end
     end
   end
+
+  describe :git_fusion_password do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'with local, global and URL-based passwords' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
+    user: global
+    password: global-pass
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+    password: "foopass"
+  yoda:
+    url: "http://foo:pass@bar"
+eos
+
+                                             )
+        )
+      end
+      it 'returns the correct password values based on priority (entry, URL, global)' do
+        entry = config.git_fusion_entry
+        expect(entry.git_fusion_password).to eq('global-pass')
+        entry = config.git_fusion_entry('foo')
+        expect(entry.git_fusion_password).to eq('foopass')
+        entry = config.git_fusion_entry('yoda')
+        expect(entry.git_fusion_password).to eq('pass')
+      end
+      it 'returns the correct password values with Ruby hash syntax' do
+        entry = config.git_fusion_entry
+        expect(entry['password']).to eq('global-pass')
+        entry = config.git_fusion_entry('foo')
+        expect(entry['password']).to eq('foopass')
+        entry = config.git_fusion_entry('yoda')
+        expect(entry['password']).to eq('pass')
+      end
+    end
+  end
 end

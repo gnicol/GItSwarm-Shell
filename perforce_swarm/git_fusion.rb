@@ -256,6 +256,14 @@ module PerforceSwarm
         str
       end
 
+      def ==(other)
+        to_str == other.to_str
+      end
+
+      def to_str
+        to_s
+      end
+
       def build_url
         if scheme != 'scp'
           # parse and set username/password fields as needed - we've already extracted user/password during init
