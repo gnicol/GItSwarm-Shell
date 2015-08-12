@@ -114,7 +114,7 @@ describe PerforceSwarm::GitFusion do
   exceptions = { 'https://123.23.23.23:443' => 'https://123.23.23.23',
                  'https://localhost:443/repo' => 'https://localhost/repo'
   }
-  let(:config) { PerforceSwarm::GitlabConfig.new }
+
   describe :valid_url? do
     it 'returns true on valid git fusion urls' do
       valid_urls.each do |url|
@@ -498,6 +498,7 @@ describe PerforceSwarm::GitFusion do
   end
 
   describe :version_check do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
     context 'without global settings' do
       before do
         config.instance_variable_set(:@config, YAML.load(<<eos
@@ -514,11 +515,13 @@ eos
 
                                              )
         )
+        mock_config = PerforceSwarm::GitlabConfig
+        mock_config.stub(:new).and_return(config)
       end
       it 'doesnt validate version if none specified' do
         git_fusion = PerforceSwarm::GitFusion
         git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.2/1128995 (2015/06/23)')
-        current_config = PerforceSwarm::GitlabConfig.new.git_fusion
+        current_config = config.git_fusion
         git_fusion.validate_entries.each do | instance, values |
           expect(values[:valid]).to be_true
           expect(values[:config]['url']).to eq(current_config[instance]['url'])
@@ -530,7 +533,7 @@ eos
       it 'returns valid data and not outdated if version 2015.2' do
         git_fusion = PerforceSwarm::GitFusion
         git_fusion.stub(:run).and_return('Rev. Git Fusion/2015.2/1128995 (2015/06/23)')
-        current_config = PerforceSwarm::GitlabConfig.new.git_fusion
+        current_config = config.git_fusion
         git_fusion.validate_entries('2015.2').each do | instance, values |
           expect(values[:valid]).to be_true
           expect(values[:config]['url']).to eq(current_config[instance]['url'])
