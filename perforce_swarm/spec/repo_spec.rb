@@ -17,12 +17,12 @@ describe PerforceSwarm::Repo do
   let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', '6-branch-4-tag-repo.bundle') }
   let(:repo_name) { 'gitswarm.git' }
   let(:tmp_git_fusion_config) do
-    {
-      'default' => {
-        'url'   => 'http://example.com',
-        'user'  => 'gitswarm'
-      }
-    }
+    PerforceSwarm::GitFusion::Config.new(
+          'default' => {
+            'url'   => 'http://example.com',
+            'user'  => 'gitswarm'
+          }
+    )
   end
 
   subject do
