@@ -65,7 +65,7 @@ module PerforceSwarm
       end
 
       # determine the git config params we want to include when running commands
-      config            = PerforceSwarm::GitlabConfig.new.git_fusion_entry
+      config            = PerforceSwarm::GitlabConfig.new.git_fusion.entry
       git_config_params = PerforceSwarm::GitFusion.git_config_params(config)
 
       # stores the time taken for various phases
@@ -189,7 +189,7 @@ module PerforceSwarm
       return true unless repo.mirrored?
 
       # determine the git config params we want to include when running commands
-      config            = PerforceSwarm::GitlabConfig.new.git_fusion_entry
+      config            = PerforceSwarm::GitlabConfig.new.git_fusion.entry
       git_config_params = PerforceSwarm::GitFusion.git_config_params(config)
 
       # the lock is automatically released after the blocks finish, but we manually release the lock for performance.

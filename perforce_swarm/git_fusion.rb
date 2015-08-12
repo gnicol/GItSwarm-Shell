@@ -48,7 +48,7 @@ module PerforceSwarm
 
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
       fail 'run requires a command' unless command
-      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
+      config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
       Dir.mktmpdir do |temp|
         silenced = false

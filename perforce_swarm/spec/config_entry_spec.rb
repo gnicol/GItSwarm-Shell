@@ -24,7 +24,7 @@ eos
         )
       end
       it 'entries allow retrieval of config settings using Ruby hash syntax' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry['url']).to eq('foo@bar')
       end
     end
@@ -50,7 +50,7 @@ eos
         )
       end
       it 'entries allow retrieval of config settings using Ruby hash syntax, with appropriate global values' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry['url']).to eq('foo@bar')
         expect(entry['user']).to eq('global')
         expect(entry['password']).to eq('global-pass')
@@ -82,7 +82,7 @@ eos
         )
       end
       it 'can set config values using Ruby hash syntax, with appropriate global values' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry['url']).to eq('foo@bar')
         entry['url'] = 'http://foobar'
         expect(entry['url']).to eq('http://foobar')
@@ -90,7 +90,7 @@ eos
         expect(entry['password']).to eq('global-pass')
       end
       it 'can set config values using Ruby hash syntax that overrides global values' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry['user']).to eq('global')
         entry['user'] = 'foo'
         expect(entry['url']).to eq('foo@bar')
@@ -125,19 +125,19 @@ eos
         )
       end
       it 'returns the correct password values based on priority (entry, URL, global)' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry.git_fusion_password).to eq('global-pass')
-        entry = config.git_fusion_entry('foo')
+        entry = config.git_fusion.entry('foo')
         expect(entry.git_fusion_password).to eq('foopass')
-        entry = config.git_fusion_entry('yoda')
+        entry = config.git_fusion.entry('yoda')
         expect(entry.git_fusion_password).to eq('pass')
       end
       it 'returns the correct password values with Ruby hash syntax' do
-        entry = config.git_fusion_entry
+        entry = config.git_fusion.entry
         expect(entry['password']).to eq('global-pass')
-        entry = config.git_fusion_entry('foo')
+        entry = config.git_fusion.entry('foo')
         expect(entry['password']).to eq('foopass')
-        entry = config.git_fusion_entry('yoda')
+        entry = config.git_fusion.entry('yoda')
         expect(entry['password']).to eq('pass')
       end
     end
