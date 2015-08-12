@@ -20,7 +20,7 @@ module PerforceSwarm
       fail 'No Git Fusion configuration found.' if entries.empty?
       entries.each do |id, value|
         value['id'] = id
-        entries[id] = GitFusion::ConfigEntry.new(value, git_fusion['global'] || {})
+        entries[id] = GitFusion::ConfigEntry.new(value, git_fusion['global'])
       end
     end
 
@@ -45,7 +45,7 @@ module PerforceSwarm
 
       def global
         # ensure defaults are set correctly, and url/label are removed from the global config
-        global_config               = @global.clone
+        global_config               = @global.is_a?(Hash) ? @global.clone : {}
         global_config['user']     ||= 'gitswarm'
         global_config['password'] ||= ''
         global_config.delete('url')
