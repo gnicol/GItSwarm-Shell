@@ -18,7 +18,7 @@ module PerforceSwarm
       # For every valid Git Fusion instance configuration attempt connection
       # and save appropriate result into an array for further processing
       results = {}
-      PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
+      PerforceSwarm::GitlabConfig.new.git_fusion.entries.each do |id, config|
         begin
           # prime valid to false; should something go awry it stays there
           results[id]            = { valid: false, config: config, id: id }
