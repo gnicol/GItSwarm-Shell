@@ -97,6 +97,12 @@ module PerforceSwarm
           global['user'] # normalized to 'gitswarm' if it doesn't exist
       end
 
+      # returns the perforce port or nil if not found
+      def perforce_port
+        # @todo: add logic to grab the port from the git fusion @info command
+        @entry['perforce']['port']
+      end
+
       def url
         PerforceSwarm::GitFusion::URL.new(@entry['url'])
       end
