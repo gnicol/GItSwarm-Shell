@@ -55,18 +55,21 @@ module PerforceSwarm
         @entry  = entry
         @global = global
 
-        # normalize the 'perforce' entry to an empty hash
-        @entry['perforce'] = {} unless @entry['perforce'].is_a?(Hash)
+        # normalize the 'perforce' and 'auto_create' entries to an empty hash
+        @entry['perforce']    = {} unless @entry['perforce'].is_a?(Hash)
+        @entry['auto_create'] = {} unless @entry['auto_create'].is_a?(Hash)
       end
 
       def global
         # ensure defaults are set correctly, and url/label are removed from the global config
-        global_config               = @global.is_a?(Hash) ? @global.clone : {}
-        global_config['user']     ||= 'gitswarm'
-        global_config['password'] ||= ''
-        global_config['perforce']  = {} unless global_config['perforce'].is_a?(Hash)
+        global_config                = @global.is_a?(Hash) ? @global.clone : {}
+        global_config['user']      ||= 'gitswarm'
+        global_config['password']  ||= ''
+        global_config['perforce']    = {} unless global_config['perforce'].is_a?(Hash)
+        global_config['auto_create'] = {} unless global_config['auto_create'].is_a?(Hash)
         global_config.delete('url')
         global_config.delete('label')
+        global_config['perforce'].delete('port')
         global_config
       end
 
@@ -78,12 +81,17 @@ module PerforceSwarm
         @entry['password'] || url.password || global['password']
       end
 
+      def git_fusion_user
+        url_user = url.user unless url.scheme == 'scp'
+        @entry['user'] || url_user || global['user']
+      end
+
       # returns the perforce password (or the empty string if not found)
       def perforce_password
         @entry['perforce']['password'] ||
+          global['perforce']['password'] ||
           @entry['password'] ||
           url.password ||
-          global['perforce']['password'] ||
           global['password'] # normalized to the empty string if it doesn't exist
       end
 
@@ -91,9 +99,9 @@ module PerforceSwarm
       def perforce_user
         url_user = url.user unless url.scheme == 'scp'
         @entry['perforce']['user'] ||
+          global['perforce']['user'] ||
           @entry['user'] ||
           url_user ||
-          global['perforce']['user'] ||
           global['user'] # normalized to 'gitswarm' if it doesn't exist
       end
 
@@ -103,12 +111,21 @@ module PerforceSwarm
         @entry['perforce']['port']
       end
 
+      def auto_create(setting = nil)
+        settings = global['auto_create'].clone
+        settings.merge!(@entry['auto_create']) if @entry['auto_create'] && @entry['auto_create'].is_a?(Hash)
+        setting ? settings[setting] : settings
+      end
+
       def url
-        PerforceSwarm::GitFusion::URL.new(@entry['url'])
+        url = PerforceSwarm::GitFusion::URL.new(@entry['url'])
+        # ensure we use the correct user
+        url.user(@entry['user'] || url.user || global['user'])
       end
 
       def [](key)
         key = 'git_fusion_password' if key == 'password'
+        key = 'git_fusion_user'     if key == 'user'
 
         return send(key)   if respond_to?(key)
         return @entry[key] if @entry[key]

@@ -25,7 +25,7 @@ eos
       end
       it 'entries allow retrieval of config settings using Ruby hash syntax' do
         entry = config.git_fusion.entry
-        expect(entry['url']).to eq('foo@bar')
+        expect(entry['url']).to eq('foo@bar'), entry.inspect
       end
     end
 
@@ -85,7 +85,7 @@ eos
         entry = config.git_fusion.entry
         expect(entry['url']).to eq('foo@bar')
         entry['url'] = 'http://foobar'
-        expect(entry['url']).to eq('http://foobar')
+        expect(entry['url']).to eq('http://global@foobar')
         expect(entry['user']).to eq('global')
         expect(entry['password']).to eq('global-pass')
       end
@@ -231,9 +231,9 @@ eos
         entry = config.git_fusion.entry
         expect(entry.perforce_password).to eq('perforce-pass')
         entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_password).to eq('foopass')
+        expect(entry.perforce_password).to eq('global-perforce-pass')
         entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_password).to eq('pass')
+        expect(entry.perforce_password).to eq('global-perforce-pass')
         entry = config.git_fusion.entry('skywalker')
         expect(entry.perforce_password).to eq('global-perforce-pass')
       end
@@ -337,9 +337,9 @@ eos
         entry = config.git_fusion.entry('bar')
         expect(entry.perforce_user).to eq('global-perforce-user')
         entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_user).to eq('foo-user')
+        expect(entry.perforce_user).to eq('global-perforce-user')
         entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_user).to eq('foo')
+        expect(entry.perforce_user).to eq('global-perforce-user')
       end
     end
   end

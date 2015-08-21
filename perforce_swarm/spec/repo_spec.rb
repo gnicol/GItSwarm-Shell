@@ -69,7 +69,7 @@ describe PerforceSwarm::Repo do
     it 'can set a mirror remote using mirror://instance/repo format' do
       (gl_project = gl_projects_create).exec
       url         = 'mirror://default/Talkhouse'
-      resolved    = 'http://example.com/Talkhouse'
+      resolved    = 'http://gitswarm@example.com/Talkhouse'
       subject.new(gl_project.full_path).send(:mirror_url=, url).should be == url
       subject.new(gl_project.full_path).send(:mirror_url).should be == resolved
       subject.new(gl_project.full_path).send(:mirrored?).should be_true
