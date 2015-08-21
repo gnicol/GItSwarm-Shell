@@ -69,6 +69,7 @@ module PerforceSwarm
         global_config['auto_create'] = {} unless global_config['auto_create'].is_a?(Hash)
         global_config.delete('url')
         global_config.delete('label')
+        global_config['perforce'].delete('port')
         global_config
       end
 
@@ -110,10 +111,10 @@ module PerforceSwarm
         @entry['perforce']['port']
       end
 
-      def auto_create(setting)
+      def auto_create(setting = nil)
         settings = global['auto_create'].clone
         settings.merge!(@entry['auto_create']) if @entry['auto_create'] && @entry['auto_create'].is_a?(Hash)
-        settings[setting]
+        setting ? settings[setting] : settings
       end
 
       def url
