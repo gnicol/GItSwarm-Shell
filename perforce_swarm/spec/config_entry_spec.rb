@@ -399,82 +399,9 @@ eos
       config['auto_create'] = { 'path_template' => '//gitswarm/{namespace}/{project-path}',
                                 'repo_name_template' => 'gitswarm-{namespace}-{project-path}' }
       expect(config.auto_create_configured?).to be_true
-    end
-  end
-
-  describe :template_validations do
-    context :valid_auto_create_template? do
-      it 'returns false for invalid templates' do
-        [nil,
-         false,
-         0,
-         [],
-         '',
-         '  '
-        ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_template?(template)).to be_false
-        end
-      end
-
-      it 'returns true for valid templates' do
-        ['{project-path}{namespace}',
-         '{{project-path}{namespace}}',
-         '//gitswarm/{namespace}/{project-path}/...',
-         '{namespace}{project-path}/foo'
-        ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_template?(template)).to be_true
-        end
-      end
-    end
-
-    context :valid_auto_create_path_template? do
-      it 'returns false for invalid path templates' do
-        [nil,
-         '',
-         '  ',
-         '//depot',
-         '//depot/path',
-         '//depot/path/...',
-         '//{namespace}',
-         '//namespace}',
-         '//depot/{namespace}/project-path',
-         '//depot/{namespace}/{projectpath}/'].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_path_template?(template)).to be_false
-        end
-      end
-
-      it 'returns true for valid path templates' do
-        ['//depot/repos/{namespace}/{project-path}',
-         '//depot/repos/{project-path}/{namespace}',
-         '//depot/re_pos/{namespace}/static/{project-path}',
-         '//depot/re-pos/{namespace}/{project-path}/'].each do | template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_path_template?(template)).to be_true
-        end
-      end
-    end
-
-    context :valid_name_template? do
-      it 'returns false for invalid name templates' do
-        ['',
-         '  ',
-         '/',
-         '{namespace{project-path}',
-         '{name{project-path}space}'
-        ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_repo_name_template?(template)).to be_false
-        end
-      end
-
-      it 'returns true for valid name templates' do
-        ['gitswarm-{namespace}-{project-path}',
-         '{namespace}-{project-path}',
-         'gitswarm.{namespace}.{project-path}',
-         'foo.{namespace}+{project-path}',
-         '{namespace}_{project-path}?',
-         '{namespace}.gs.{project-path}'].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_repo_name_template?(template)).to be_true
-        end
-      end
+      config['auto_create'] = { 'path_template' => '//gitswarm/{namespace}/{project-path}',
+                                'repo_name_template' => '{namespace}.{project-path}' }
+      expect(config.auto_create_configured?).to be_true
     end
   end
 end

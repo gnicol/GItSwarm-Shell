@@ -51,21 +51,6 @@ module PerforceSwarm
     end
 
     class ConfigEntry
-      def self.valid_auto_create_path_template?(path)
-        valid_auto_create_template?(path) && path =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
-      end
-
-      def self.valid_auto_create_repo_name_template?(name)
-        valid_auto_create_template?(name)
-      end
-
-      # generic function to validate either a namespace or project-path template
-      def self.valid_auto_create_template?(template)
-        template.is_a?(String) &&
-          template.include?('{project-path}') &&
-          template.include?('{namespace}')
-      end
-
       def initialize(entry, global = {})
         @entry  = entry
         @global = global
@@ -127,8 +112,17 @@ module PerforceSwarm
       end
 
       def auto_create_configured?
-        ConfigEntry.valid_auto_create_path_template?(auto_create['path_template']) &&
-          ConfigEntry.valid_auto_create_repo_name_template?(auto_create['repo_name_template'])
+        # ensure templates are strings and contain both a project-path and namespace substitution argument
+        %w(path_template repo_name_template).each do |template|
+          template = auto_create[template]
+          return false unless template.is_a?(String) &&
+                              template.include?('{project-path}') &&
+                              template.include?('{namespace}')
+        end
+
+        # ensure the path template starts with //, contains at least one other slash and doesn't end in ...
+        return false unless auto_create['path_template'] =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
+        true
       end
 
       def auto_create(setting = nil)
