@@ -111,6 +111,20 @@ module PerforceSwarm
         @entry['perforce']['port']
       end
 
+      def auto_create_configured?
+        # ensure templates are strings and contain both a project-path and namespace substitution argument
+        %w(path_template repo_name_template).each do |template|
+          template = auto_create[template]
+          return false unless template.is_a?(String) &&
+                              template.include?('{project-path}') &&
+                              template.include?('{namespace}')
+        end
+
+        # ensure the path template starts with //, contains at least one other slash and doesn't end in ...
+        return false unless auto_create['path_template'] =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
+        true
+      end
+
       def auto_create(setting = nil)
         settings = global['auto_create'].clone
         settings.merge!(@entry['auto_create']) if @entry['auto_create'] && @entry['auto_create'].is_a?(Hash)
