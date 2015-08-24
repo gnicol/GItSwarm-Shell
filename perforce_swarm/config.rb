@@ -126,6 +126,11 @@ module PerforceSwarm
         @entry['perforce']['port']
       end
 
+      def auto_create_configured?
+        ConfigEntry.valid_path_template?(auto_create['path_template']) &&
+          ConfigEntry.valid_repo_name_template?(auto_create['repo_name_template'])
+      end
+
       def auto_create(setting = nil)
         settings = global['auto_create'].clone
         settings.merge!(@entry['auto_create']) if @entry['auto_create'] && @entry['auto_create'].is_a?(Hash)

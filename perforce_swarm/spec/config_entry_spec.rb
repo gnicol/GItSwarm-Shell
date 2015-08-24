@@ -344,6 +344,64 @@ eos
     end
   end
 
+  describe :auto_create_configured? do
+    before do
+      @base_config = PerforceSwarm::GitFusion::Config.new(
+          'enabled' => true,
+          'global' => {},
+          'foo' => {
+            'url'  => 'foo@unknown-host',
+            'user' => 'p4test',
+            'perforce' => {
+              'port' => "rsh:#{@p4d} -r #{@p4root} -i -q"
+            }
+          }
+      )
+    end
+
+    it 'returns false if auto_create is misconfigured or missing' do
+      entry                = @base_config.entry
+      entry['auto_create'] = { 'path_template' => 'path', 'repo_name_template' => 'name' }
+      [nil,
+       {},
+       { 'foo' => 'bar' },
+       { 'enabled' => true },
+       { 'default' => { 'url' => 'foo@bar' } },
+       @base_config.clone.entry,
+       entry
+      ].each do |config|
+        entry                = @base_config.entry
+        entry['auto_create'] = config
+        expect(entry.auto_create_configured?).to be_false
+      end
+    end
+
+    it 'returns false when the config has invalid values for auto_create path/repo_name templates' do
+      [{ 'auto_create' => { 'path_template' => 0, 'repo_name_template' => '' } },
+       { 'auto_create' => { 'path_template' => '', 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => 'path', 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => {}, 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => '//some/path/{project-path}', 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => '//some/path/{project-path}', 'repo_name_template' => ['name'] } },
+       { 'auto_create' => { 'path_template' => '//static/path', 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => '//some/{namespace}/{project-path}', 'repo_name_template' => 'name' } },
+       { 'auto_create' => { 'path_template' => '//some/{namespace}/{project-path}', 'repo_name_template' => ['nom'] } },
+       { 'auto_create' => { 'path_template' => '//static/path', 'repo_name_template' => 'name' } }
+      ].each do |config|
+        entry                = @base_config.entry
+        entry['auto_create'] = config
+        expect(entry.auto_create_configured?).to be_false
+      end
+    end
+
+    it 'returns true when the config is valid' do
+      config = @base_config.clone.entry
+      config['auto_create'] = { 'path_template' => '//gitswarm/{namespace}/{project-path}',
+                                'repo_name_template' => 'gitswarm-{namespace}-{project-path}' }
+      expect(config.auto_create_configured?).to be_true
+    end
+  end
+
   describe :template_validations do
     context :valid_template? do
       it 'returns false for invalid templates' do
