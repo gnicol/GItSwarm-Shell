@@ -51,16 +51,16 @@ module PerforceSwarm
     end
 
     class ConfigEntry
-      def self.valid_path_template?(path)
-        valid_template?(path) && path =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
+      def self.valid_auto_create_path_template?(path)
+        valid_auto_create_template?(path) && path =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
       end
 
-      def self.valid_repo_name_template?(name)
-        valid_template?(name)
+      def self.valid_auto_create_repo_name_template?(name)
+        valid_auto_create_template?(name)
       end
 
       # generic function to validate either a namespace or project-path template
-      def self.valid_template?(template)
+      def self.valid_auto_create_template?(template)
         template.is_a?(String) &&
           template.include?('{project-path}') &&
           template.include?('{namespace}')
@@ -127,8 +127,8 @@ module PerforceSwarm
       end
 
       def auto_create_configured?
-        ConfigEntry.valid_path_template?(auto_create['path_template']) &&
-          ConfigEntry.valid_repo_name_template?(auto_create['repo_name_template'])
+        ConfigEntry.valid_auto_create_path_template?(auto_create['path_template']) &&
+          ConfigEntry.valid_auto_create_repo_name_template?(auto_create['repo_name_template'])
       end
 
       def auto_create(setting = nil)

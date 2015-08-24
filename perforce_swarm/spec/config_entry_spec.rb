@@ -403,7 +403,7 @@ eos
   end
 
   describe :template_validations do
-    context :valid_template? do
+    context :valid_auto_create_template? do
       it 'returns false for invalid templates' do
         [nil,
          false,
@@ -412,7 +412,7 @@ eos
          '',
          '  '
         ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_template?(template)).to be_false
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_template?(template)).to be_false
         end
       end
 
@@ -422,12 +422,12 @@ eos
          '//gitswarm/{namespace}/{project-path}/...',
          '{namespace}{project-path}/foo'
         ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_template?(template)).to be_true
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_template?(template)).to be_true
         end
       end
     end
 
-    context :valid_path_template? do
+    context :valid_auto_create_path_template? do
       it 'returns false for invalid path templates' do
         [nil,
          '',
@@ -439,7 +439,7 @@ eos
          '//namespace}',
          '//depot/{namespace}/project-path',
          '//depot/{namespace}/{projectpath}/'].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_path_template?(template)).to be_false
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_path_template?(template)).to be_false
         end
       end
 
@@ -448,7 +448,7 @@ eos
          '//depot/repos/{project-path}/{namespace}',
          '//depot/re_pos/{namespace}/static/{project-path}',
          '//depot/re-pos/{namespace}/{project-path}/'].each do | template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_path_template?(template)).to be_true
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_path_template?(template)).to be_true
         end
       end
     end
@@ -461,7 +461,7 @@ eos
          '{namespace{project-path}',
          '{name{project-path}space}'
         ].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_repo_name_template?(template)).to be_false, template
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_repo_name_template?(template)).to be_false
         end
       end
 
@@ -472,7 +472,7 @@ eos
          'foo.{namespace}+{project-path}',
          '{namespace}_{project-path}?',
          '{namespace}.gs.{project-path}'].each do |template|
-          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_repo_name_template?(template)).to be_true, template
+          expect(PerforceSwarm::GitFusion::ConfigEntry.valid_auto_create_repo_name_template?(template)).to be_true
         end
       end
     end
