@@ -55,6 +55,7 @@ module PerforceSwarm
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
           silenced ||= line =~ /^fatal: (repository|Could not read from remote repository\.)/
+          next if line =~ /^Warning: Permanently added .* to the list of known hosts/
           next if line =~ /^Cloning into/ || silenced
           output    += line
           print line       if stream_output
