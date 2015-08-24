@@ -51,6 +51,21 @@ module PerforceSwarm
     end
 
     class ConfigEntry
+      def self.valid_path_template?(path)
+        valid_template?(path) && path =~ %r{\A//[^/]+/.+(?<!\.\.\.)\z}
+      end
+
+      def self.valid_repo_name_template?(name)
+        valid_template?(name)
+      end
+
+      # generic function to validate either a namespace or project-path template
+      def self.valid_template?(template)
+        template.is_a?(String) &&
+          template.include?('{project-path}') &&
+          template.include?('{namespace}')
+      end
+
       def initialize(entry, global = {})
         @entry  = entry
         @global = global
