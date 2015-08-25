@@ -107,8 +107,25 @@ module PerforceSwarm
 
       # returns the perforce port or nil if not found
       def perforce_port
-        # @todo: add logic to grab the port from the git fusion @info command
-        @entry['perforce']['port']
+        # if we have an explicit port, use it!
+        return @entry['perforce']['port'] if @entry['perforce']['port']
+
+        # if no port was set attempt to scrape it from info output
+        unless @info
+          begin
+            # only bother to run if we have an entry id
+            @info = PerforceSwarm::GitFusion.run(@entry['id'], 'info') if @entry['id']
+          rescue
+            @info = ''
+          end
+        end
+
+        # encrypted servers don't report the correct p4port (no ssl: prefix is present)
+        # so we pull out both the port and encrypted flag and prefix if needed
+        encrypted = @info =~ /^Server encryption: encrypted/  if @info
+        port      = @info[/^Server address: (.*)/, 1]         if @info
+        port      = 'ssl:' + port                             if port && encrypted && port !~ /^ssl:/
+        port
       end
 
       def auto_create_configured?
