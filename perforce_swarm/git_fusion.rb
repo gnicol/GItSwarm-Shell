@@ -66,6 +66,13 @@ module PerforceSwarm
     end
 
     def self.validate_git_output(command, output)
+      # when a MITM error occurs some platforms still include the command output
+      # we want to detect that scenario and fail (even though our output is present)
+      # note centos 6.5 seems to have \r\n line endings preventing us from anchoring this regex :(
+      mitm_regex = /@ *WARNING: (REMOTE HOST IDENTIFICATION HAS CHANGED!|POSSIBLE DNS SPOOFING DETECTED!) *@/
+      fail RunError, output if output =~ mitm_regex
+
+      # command specific validations
       if command == 'list'
         # we're looking for a list of repos, or the message 'no repositories found'
         valid = output.match(/^no repositories found$/) ||
@@ -75,6 +82,8 @@ module PerforceSwarm
         # the first line should be boilerplate
         fail RunError, output[/^fatal: (?<error>.*)$/] unless output.start_with?('Perforce - The Fast Software')
       end
+
+      # if no-one got upset, output was ok so return it
       output
     end
 
