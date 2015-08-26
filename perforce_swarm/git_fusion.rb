@@ -83,6 +83,7 @@ module PerforceSwarm
       # command specific validations
       if command == 'list'
         # we're looking for a list of repos, or the message 'no repositories found'
+        fail RunError, 'No response was received.' if output.empty?
         valid = output.match(/^no repositories found$/) ||
                 output.lines.all? { |line| line.match(/^([^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(.+?))?$/) }
         fail RunError, output unless valid
