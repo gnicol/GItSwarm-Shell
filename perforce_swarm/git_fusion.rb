@@ -61,7 +61,7 @@ module PerforceSwarm
           print line       if stream_output
           block.call(line) if block
         end
-        return validate_git_output(command, output.gsub(/\A\n|\n\z/, ''))
+        return validate_git_output(command, output.gsub(/\A\n*|\n*\z/, ''))
       end
     end
 
