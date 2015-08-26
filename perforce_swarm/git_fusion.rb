@@ -47,6 +47,9 @@ module PerforceSwarm
     end
 
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
+      # we always log either a debug or error entry; calculate the pre-amble early
+      log_context = "GitFusion.run(#{[id, command, repo, extra, stream_output, block].map(&:inspect).join(', ')}) "
+
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
@@ -57,12 +60,17 @@ module PerforceSwarm
           silenced ||= line =~ /^fatal: (repository|Could not read from remote repository\.)/
           next if line =~ /^Warning: Permanently added .* to the list of known hosts/
           next if line =~ /^Cloning into/ || silenced
-          output    += line
+          output += line
           print line       if stream_output
           block.call(line) if block
         end
-        return validate_git_output(command, output.gsub(/\A\n*|\n*\z/, ''))
+        output = validate_git_output(command, output.gsub(/\A\n*|\n*\z/, ''))
+        $logger.debug "#{log_context}\n#{output}"
+        output
       end
+    rescue => e
+      $logger.error "#{log_context}\n#{e.inspect}\n#{e.backtrace.join("\n") unless e.is_a?(RunError)}"
+      raise e
     end
 
     def self.validate_git_output(command, output)
