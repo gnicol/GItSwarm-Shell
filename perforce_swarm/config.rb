@@ -122,9 +122,9 @@ module PerforceSwarm
 
         # encrypted servers don't report the correct p4port (no ssl: prefix is present)
         # so we pull out both the port and encrypted flag and prefix if needed
-        encrypted = @info =~ /^Server encryption: encrypted/  if @info
-        port      = @info[/^Server address: (.*)/, 1]         if @info
-        port      = 'ssl:' + port                             if port && encrypted && port !~ /^ssl:/
+        encrypted = @info =~ /^Server encryption: encrypted/ if @info
+        port      = @info[/^Server address: (.*)/, 1]        if @info
+        port      = 'ssl:' + port                            if port && encrypted && port !~ /^ssl:/
         port
       end
 
