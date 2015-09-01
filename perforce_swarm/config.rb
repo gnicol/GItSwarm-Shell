@@ -124,6 +124,9 @@ module PerforceSwarm
         # so we pull out both the port and encrypted flag and prefix if needed
         encrypted = @info =~ /^Server encryption: encrypted/ if @info
         port      = @info[/^Server address: (.*)/, 1]        if @info
+
+        # ensure that localhost, 127.0.0.1, or localhost/localhost.localdomain get replaced with the git fusion host
+        port.gsub!(/^(ssl:)?(localhost|127\.0\.0\.1|localhost\.localdomain)(:.+)?$/, '\1' + @entry['url'].host + '\3')
         port      = 'ssl:' + port                            if port && encrypted && port !~ /^ssl:/
         port
       end

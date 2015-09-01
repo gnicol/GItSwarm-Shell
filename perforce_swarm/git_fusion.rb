@@ -158,7 +158,7 @@ module PerforceSwarm
           @user    = parsed.user
           self.url = parsed.user + '@' + parsed.host
         else
-          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + bare_host(parsed)
           @user     = parsed.user
           @password = parsed.password
         end
@@ -293,7 +293,7 @@ module PerforceSwarm
           # build and include the correct userinfo
           userinfo  = parsed.user ? parsed.user : ''
           userinfo += parsed.password && !strip_password ? ':' + parsed.password : ''
-          str       = parsed.scheme + '://' + (!userinfo.empty? ? userinfo + '@' : '') + host(parsed)
+          str       = parsed.scheme + '://' + (!userinfo.empty? ? userinfo + '@' : '') + bare_host(parsed)
         else
           # url is simply user@host
           parsed = url.split('@', 2)
@@ -310,9 +310,14 @@ module PerforceSwarm
         command || repo || extra
       end
 
+      def host
+        return bare_host(URI.parse(url)) if scheme != 'scp'
+        url.split('@', 2)[1]
+      end
+
       protected
 
-      def host(url)
+      def bare_host(url)
         url.host + (url.port && url.port != url.default_port ? ':' + url.port.to_s : '')
       end
     end
