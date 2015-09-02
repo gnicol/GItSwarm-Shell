@@ -7,8 +7,6 @@ module PerforceSwarm
     # returns a hash mapping repo name to description for all repos for the given Git Fusion config entry
     def self.list(id = nil)
       parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
-    rescue PerforceSwarm::GitFusion::RunError
-      {}
     end
 
     # largely a separate method for testability
@@ -36,7 +34,7 @@ module PerforceSwarm
       parsed = mirror_url.sub(%r{^mirror://}, '').split('/', 2)
       fail "Invalid Mirror URL provided: #{mirror_url}" unless parsed.length == 2
 
-      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(parsed[0])
+      config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(parsed[0])
       PerforceSwarm::GitFusion::URL.new(config['url']).repo(parsed[1]).to_s
     end
   end

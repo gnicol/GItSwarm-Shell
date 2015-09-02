@@ -17,12 +17,12 @@ describe PerforceSwarm::Repo do
   let(:test_repo_bundle) { File.join(ROOT_PATH, 'perforce_swarm', 'spec', '6-branch-4-tag-repo.bundle') }
   let(:repo_name) { 'gitswarm.git' }
   let(:tmp_git_fusion_config) do
-    {
-      'default' => {
-        'url'   => 'http://example.com',
-        'user'  => 'gitswarm'
-      }
-    }
+    PerforceSwarm::GitFusion::Config.new(
+          'default' => {
+            'url'   => 'http://example.com',
+            'user'  => 'gitswarm'
+          }
+    )
   end
 
   subject do
@@ -69,7 +69,7 @@ describe PerforceSwarm::Repo do
     it 'can set a mirror remote using mirror://instance/repo format' do
       (gl_project = gl_projects_create).exec
       url         = 'mirror://default/Talkhouse'
-      resolved    = 'http://example.com/Talkhouse'
+      resolved    = 'http://gitswarm@example.com/Talkhouse'
       subject.new(gl_project.full_path).send(:mirror_url=, url).should be == url
       subject.new(gl_project.full_path).send(:mirror_url).should be == resolved
       subject.new(gl_project.full_path).send(:mirrored?).should be_true

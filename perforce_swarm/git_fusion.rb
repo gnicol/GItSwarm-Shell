@@ -18,7 +18,7 @@ module PerforceSwarm
       # For every valid Git Fusion instance configuration attempt connection
       # and save appropriate result into an array for further processing
       results = {}
-      PerforceSwarm::GitlabConfig.new.git_fusion_entries.each do |id, config|
+      PerforceSwarm::GitlabConfig.new.git_fusion.entries.each do |id, config|
         begin
           # prime valid to false; should something go awry it stays there
           results[id]            = { valid: false, config: config, id: id }
@@ -47,26 +47,43 @@ module PerforceSwarm
     end
 
     def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
+      # we always log either a debug or error entry; calculate the pre-amble early
+      log_context = "GitFusion.run(#{[id, command, repo, extra, stream_output, block].map(&:inspect).join(', ')}) "
+
       fail 'run requires a command' unless command
-      config = PerforceSwarm::GitlabConfig.new.git_fusion_entry(id)
+      config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
         Utils.popen(['git', *git_config_params(config), 'clone', '--', url.to_s], temp) do |line|
-          silenced ||= line =~ /^fatal: Could not read from remote repository\./
+          silenced ||= line =~ /^fatal: (repository|Could not read from remote repository\.)/
+          next if line =~ /^Warning: Permanently added .* to the list of known hosts/
           next if line =~ /^Cloning into/ || silenced
-          output    += line
+          output += line
           print line       if stream_output
           block.call(line) if block
         end
-        return validate_git_output(command, output.chomp)
+        output = validate_git_output(command, output.gsub(/\A\n*|\n*\z/, ''))
+        $logger.debug "#{log_context}\n#{output}"
+        output
       end
+    rescue => e
+      $logger.error "#{log_context}\n#{e.inspect}\n#{e.backtrace.join("\n") unless e.is_a?(RunError)}"
+      raise e
     end
 
     def self.validate_git_output(command, output)
+      # when a MITM error occurs some platforms still include the command output
+      # we want to detect that scenario and fail (even though our output is present)
+      # note centos 6.5 seems to have \r\n line endings preventing us from anchoring this regex :(
+      mitm_regex = /@ *WARNING: (REMOTE HOST IDENTIFICATION HAS CHANGED!|POSSIBLE DNS SPOOFING DETECTED!) *@/
+      fail RunError, output if output =~ mitm_regex
+
+      # command specific validations
       if command == 'list'
         # we're looking for a list of repos, or the message 'no repositories found'
+        fail RunError, 'No response was received.' if output.empty?
         valid = output.match(/^no repositories found$/) ||
                 output.lines.all? { |line| line.match(/^([^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(.+?))?$/) }
         fail RunError, output unless valid
@@ -74,6 +91,8 @@ module PerforceSwarm
         # the first line should be boilerplate
         fail RunError, output[/^fatal: (?<error>.*)$/] unless output.start_with?('Perforce - The Fast Software')
       end
+
+      # if no-one got upset, output was ok so return it
       output
     end
 
@@ -139,7 +158,7 @@ module PerforceSwarm
           @user    = parsed.user
           self.url = parsed.user + '@' + parsed.host
         else
-          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + host(parsed)
+          self.url  = parsed.scheme + '://' + (parsed.userinfo ? parsed.userinfo + '@' : '') + bare_host(parsed)
           @user     = parsed.user
           @password = parsed.password
         end
@@ -274,7 +293,7 @@ module PerforceSwarm
           # build and include the correct userinfo
           userinfo  = parsed.user ? parsed.user : ''
           userinfo += parsed.password && !strip_password ? ':' + parsed.password : ''
-          str       = parsed.scheme + '://' + (!userinfo.empty? ? userinfo + '@' : '') + host(parsed)
+          str       = parsed.scheme + '://' + (!userinfo.empty? ? userinfo + '@' : '') + bare_host(parsed)
         else
           # url is simply user@host
           parsed = url.split('@', 2)
@@ -291,9 +310,14 @@ module PerforceSwarm
         command || repo || extra
       end
 
+      def host
+        return bare_host(URI.parse(url)) if scheme != 'scp'
+        url.split('@', 2)[1]
+      end
+
       protected
 
-      def host(url)
+      def bare_host(url)
         url.host + (url.port && url.port != url.default_port ? ':' + url.port.to_s : '')
       end
     end

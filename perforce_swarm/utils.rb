@@ -9,7 +9,7 @@ module PerforceSwarm
 
       path  ||= Dir.pwd
       vars    = { 'PWD' => path,
-                  'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=yes -o PasswordAuthentication=no',
+                  'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no',
                   'GIT_TERMINAL_PROMPT' => '0',
                   'PATH' => "#{RbConfig::CONFIG['bindir']}:#{ENV['PATH']}"
                 }
