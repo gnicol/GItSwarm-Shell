@@ -157,13 +157,24 @@ module PerforceSwarm
 
         # encrypted servers don't report the correct p4port (no ssl: prefix is present)
         # so we pull out both the port and encrypted flag and prefix if needed
-        encrypted = @info =~ /^Server encryption: encrypted/ if @info
-        port      = @info[/^Server address: (.*)/, 1]        if @info
-
-        # ensure that localhost, 127.0.0.1, or localhost/localhost.localdomain get replaced with the git fusion host
-        port.gsub!(/^(ssl:)?(localhost|127\.0\.0\.1|localhost\.localdomain)(:.+)?$/, '\1' + @entry['url'].host + '\3')
-        port      = 'ssl:' + port                            if port && encrypted && port !~ /^ssl:/
+        encrypted = @info =~ /^Server encryption: encrypted/                if @info
+        port      = expand_perforce_port(@info[/^Server address: (.*)/, 1]) if @info
+        port      = 'ssl:' + port                                           if port && encrypted && port !~ /^ssl:/
         port
+      end
+
+      # ensures that the given perforce port is properly expanded to include the required hostname
+      def expand_perforce_port(port)
+        return port unless port && !port.empty?
+        expanded = port.dup
+        host     = PerforceSwarm::GitFusion::URL.new(@entry['url']).host
+
+        # remove leading : (as in :1666)
+        expanded = expanded[1..-1] if expanded.start_with?(':')
+        # expand bare port or ssl: with port (e.g. 1666, ssl:1666)
+        expanded.gsub!(/^(ssl:)?(\d+)$/, '\1' + host + ':\2')
+        # handle various incarnations of localhost (e.g. 127.0.0.1, localhost)
+        expanded.gsub(/^(ssl:)?(localhost|127\.0\.0\.1|localhost\.localdom(ain)?)(:.+)?$/, '\1' + host + '\4')
       end
 
       def auto_create_configured?
