@@ -48,6 +48,41 @@ module PerforceSwarm
         id ||= entry_list.first[0]
         entry_list[id]
       end
+
+      def validate_entries(min_version = nil)
+        fail "Invalid min_version specified: #{min_version}"  if min_version && !Gem::Version.correct?(min_version)
+        min_version = Gem::Version.new(min_version)           if min_version
+
+        # For every valid Git Fusion instance configuration attempt connection
+        # and save appropriate result into an array for further processing
+        results = {}
+        entries.each do |id, config|
+          begin
+            # prime valid to false; should something go awry it stays there
+            results[id]            = { valid: false, config: config, id: id }
+            # verify we can run info and then parse out the version details
+            results[id][:info]    = PerforceSwarm::GitFusion.run(id, 'info')
+            # Version info: Rev. Git Fusion/2015.2/1128995 (2015/06/23).
+            # Support version patches by converting to 2015.2.1128995
+            info_version = results[id][:info].match(%r{^Rev\. Git Fusion/(\d{4}\.[^/]+)/(\d+)})
+            results[id][:version] = "#{info_version[1]}.#{info_version[2]}"
+            results[id][:valid]   = true
+
+            # if we were given a min_version and could pull a git-fusion info version, enforce it
+            version = Gem::Version.new(results[id][:version]) if Gem::Version.correct?(results[id][:version])
+            if min_version && version && version < min_version
+              results[id][:outdated] = true
+              results[id][:valid]    = false
+            end
+          rescue RunError => ex
+            results[id][:valid] = false
+            results[id][:error] = ex.message
+          end
+
+          yield results[id] if block_given?
+        end
+        results
+      end
     end
 
     class ConfigEntry
