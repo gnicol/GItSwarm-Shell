@@ -195,12 +195,14 @@ eos
           '127.0.0.1:1667'                 => 'bar:1667',
           'localhost:1666'                 => 'bar:1666',
           'localhost.localdomain:1666'     => 'bar:1666',
+          'localhost.localdom:1666'        => 'bar:1666',
           'ssl:1666'                       => 'ssl:bar:1666',
           'ssl:7767'                       => 'ssl:bar:7767',
           'ssl:127.0.0.1:1666'             => 'ssl:bar:1666',
           'ssl:127.0.0.1:1667'             => 'ssl:bar:1667',
           'ssl:localhost:1666'             => 'ssl:bar:1666',
-          'ssl:localhost.localdomain:1666' => 'ssl:bar:1666'
+          'ssl:localhost.localdomain:1666' => 'ssl:bar:1666',
+          'ssl:localhost.localdom:1666'    => 'ssl:bar:1666'
         }.each do |example, expected|
           expect(entry.expand_perforce_port(example)).to eq(expected)
           expect(http_entry.expand_perforce_port(example)).to eq(expected)

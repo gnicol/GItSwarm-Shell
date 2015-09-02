@@ -122,10 +122,10 @@ module PerforceSwarm
 
         # encrypted servers don't report the correct p4port (no ssl: prefix is present)
         # so we pull out both the port and encrypted flag and prefix if needed
-        encrypted = @info =~ /^Server encryption: encrypted/ if @info
-        port      = @info[/^Server address: (.*)/, 1]        if @info
-        port      = 'ssl:' + port      if port && encrypted && port !~ /^ssl:/
-        expand_perforce_port(port)
+        encrypted = @info =~ /^Server encryption: encrypted/                if @info
+        port      = expand_perforce_port(@info[/^Server address: (.*)/, 1]) if @info
+        port      = 'ssl:' + port                                           if port && encrypted && port !~ /^ssl:/
+        port
       end
 
       # ensures that the given perforce port is properly expanded to include the required hostname
@@ -139,7 +139,7 @@ module PerforceSwarm
         # expand bare port or ssl: with port (e.g. 1666, ssl:1666)
         expanded.gsub!(/^(ssl:)?(\d+)$/, '\1' + host + ':\2')
         # handle various incarnations of localhost (e.g. 127.0.0.1, localhost)
-        expanded.gsub(/^(ssl:)?(localhost|127\.0\.0\.1|localhost\.localdomain)(:.+)?$/, '\1' + host + '\3')
+        expanded.gsub(/^(ssl:)?(localhost|127\.0\.0\.1|localhost\.localdom(ain)?)(:.+)?$/, '\1' + host + '\4')
       end
 
       def auto_create_configured?
