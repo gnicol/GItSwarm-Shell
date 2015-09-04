@@ -143,6 +143,74 @@ eos
     end
   end
 
+  describe :expand_perforce_port do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'with no perforce or global configuration' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+    password: "foopass"
+  http_test:
+    url: "http://foo:pass@bar"
+eos
+                                             )
+        )
+      end
+      it 'leaves Perforce ports that contain a fqdn and port alone' do
+        entry      = config.git_fusion.entry
+        http_entry = config.git_fusion.entry('http_test')
+        [nil,
+         '',
+         'hostname:1666',
+         'host.com:1666',
+         'non-standard-port.com:1667',
+         '10.5.40.123:1666',
+         '5.4.3.1:7661',
+         'weird-123.host.name.org:123',
+         'ssl:hostname:1666',
+         'ssl:host.com:1666',
+         'ssl:non-standard-port.com:1667',
+         'ssl:10.5.40.123:1666',
+         'ssl:5.4.3.1:7661',
+         'ssl:weird-123.host.name.org:123'
+        ].each do |example|
+          expect(entry.expand_perforce_port(example)).to eq(example)
+          expect(http_entry.expand_perforce_port(example)).to eq(example)
+        end
+      end
+      it 'expands localhost-ish or missing fqdn Perforce ports to include GF host name' do
+        entry      = config.git_fusion.entry
+        http_entry = config.git_fusion.entry('http_test')
+        { '1666'                           => 'bar:1666',
+          '7767'                           => 'bar:7767',
+          ':1666'                          => 'bar:1666',
+          '127.0.0.1:1666'                 => 'bar:1666',
+          '127.0.0.1:1667'                 => 'bar:1667',
+          'localhost:1666'                 => 'bar:1666',
+          'localhost.localdomain:1666'     => 'bar:1666',
+          'localhost.localdom:1666'        => 'bar:1666',
+          'ssl:1666'                       => 'ssl:bar:1666',
+          'ssl:7767'                       => 'ssl:bar:7767',
+          'ssl:127.0.0.1:1666'             => 'ssl:bar:1666',
+          'ssl:127.0.0.1:1667'             => 'ssl:bar:1667',
+          'ssl:localhost:1666'             => 'ssl:bar:1666',
+          'ssl:localhost.localdomain:1666' => 'ssl:bar:1666',
+          'ssl:localhost.localdom:1666'    => 'ssl:bar:1666'
+        }.each do |example, expected|
+          expect(entry.expand_perforce_port(example)).to eq(expected)
+          expect(http_entry.expand_perforce_port(example)).to eq(expected)
+        end
+      end
+    end
+  end
+
   describe :perforce_password do
     let(:config) { PerforceSwarm::GitlabConfig.new }
 
