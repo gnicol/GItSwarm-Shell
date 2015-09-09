@@ -38,6 +38,15 @@ module PerforceSwarm
         end
       end
 
+      def entry_by_url(url)
+        url = PerforceSwarm::GitFusion::URL.new(url) unless url.is_a?(PerforceSwarm::GitFusion::URL)
+        url = url.clear_path
+        entries.each do |_id, entry|
+          return entry if url == entry['url']
+        end
+        fail "Couldn't find a Git Fusion config entry for URL #{url}."
+      end
+
       def entry(id = nil)
         entry_list = entries
 

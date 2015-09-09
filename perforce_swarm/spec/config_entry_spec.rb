@@ -412,6 +412,47 @@ eos
     end
   end
 
+  describe :entry_by_url do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'with multiple entries' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
+    user: global
+    password: global-pass
+    perforce:
+      user: global-perforce-user
+      password: global-perforce-pass
+  default:
+    url: "foo@bar"
+    perforce:
+      user: perforce-user
+      password: perforce-pass
+  bar:
+    url: "http://somehost"
+  foo:
+    url: "http://baz"
+    user: "foo-user"
+    password: "foopass"
+  yoda:
+    url: "http://foo:pass@bar"
+eos
+
+                                             )
+        )
+      end
+      it 'returns the correct entry for a given URL' do
+        config.git_fusion.entries.each do |id, entry|
+          expect(config.git_fusion.entry_by_url(entry['url'])['id']).to eq(id)
+        end
+      end
+    end
+  end
+
   describe :auto_create_configured? do
     before do
       @base_config = PerforceSwarm::GitFusion::Config.new(
