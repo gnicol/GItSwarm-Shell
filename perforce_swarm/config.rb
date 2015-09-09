@@ -133,9 +133,9 @@ module PerforceSwarm
       # returns the perforce password (or the empty string if not found)
       def perforce_password
         @entry['perforce']['password'] ||
-          global['perforce']['password'] ||
           @entry['password'] ||
           url.password ||
+          global['perforce']['password'] ||
           global['password'] # normalized to the empty string if it doesn't exist
       end
 
@@ -143,9 +143,9 @@ module PerforceSwarm
       def perforce_user
         url_user = url.user unless url.scheme == 'scp'
         @entry['perforce']['user'] ||
-          global['perforce']['user'] ||
           @entry['user'] ||
           url_user ||
+          global['perforce']['user'] ||
           global['user'] # normalized to 'gitswarm' if it doesn't exist
       end
 
