@@ -299,9 +299,9 @@ eos
         entry = config.git_fusion.entry
         expect(entry.perforce_password).to eq('perforce-pass')
         entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_password).to eq('global-perforce-pass')
+        expect(entry.perforce_password).to eq('foopass')
         entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_password).to eq('global-perforce-pass')
+        expect(entry.perforce_password).to eq('pass')
         entry = config.git_fusion.entry('skywalker')
         expect(entry.perforce_password).to eq('global-perforce-pass')
       end
@@ -376,7 +376,7 @@ git_fusion:
   enabled: true
   some_value: some string
   global:
-    user: global
+    user: global-user
     password: global-pass
     perforce:
       user: global-perforce-user
@@ -387,7 +387,7 @@ git_fusion:
       user: perforce-user
       password: perforce-pass
   bar:
-    url: "http://somehost"
+    url: "user@somehost"
   foo:
     url: "http://baz"
     user: "foo-user"
@@ -405,9 +405,9 @@ eos
         entry = config.git_fusion.entry('bar')
         expect(entry.perforce_user).to eq('global-perforce-user')
         entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_user).to eq('global-perforce-user')
+        expect(entry.perforce_user).to eq('foo-user')
         entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_user).to eq('global-perforce-user')
+        expect(entry.perforce_user).to eq('foo')
       end
     end
   end
