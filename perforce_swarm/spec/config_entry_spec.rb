@@ -299,9 +299,9 @@ eos
         entry = config.git_fusion.entry
         expect(entry.perforce_password).to eq('perforce-pass')
         entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_password).to eq('global-perforce-pass')
+        expect(entry.perforce_password).to eq('foopass')
         entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_password).to eq('global-perforce-pass')
+        expect(entry.perforce_password).to eq('pass')
         entry = config.git_fusion.entry('skywalker')
         expect(entry.perforce_password).to eq('global-perforce-pass')
       end
@@ -376,6 +376,52 @@ git_fusion:
   enabled: true
   some_value: some string
   global:
+    user: global-user
+    password: global-pass
+    perforce:
+      user: global-perforce-user
+      password: global-perforce-pass
+  default:
+    url: "foo@bar"
+    perforce:
+      user: perforce-user
+      password: perforce-pass
+  bar:
+    url: "user@somehost"
+  foo:
+    url: "http://baz"
+    user: "foo-user"
+    password: "foopass"
+  yoda:
+    url: "http://foo:pass@bar"
+eos
+
+                                             )
+        )
+      end
+      it 'returns the correct perforce user values based on priority' do
+        entry = config.git_fusion.entry
+        expect(entry.perforce_user).to eq('perforce-user')
+        entry = config.git_fusion.entry('bar')
+        expect(entry.perforce_user).to eq('global-perforce-user')
+        entry = config.git_fusion.entry('foo')
+        expect(entry.perforce_user).to eq('foo-user')
+        entry = config.git_fusion.entry('yoda')
+        expect(entry.perforce_user).to eq('foo')
+      end
+    end
+  end
+
+  describe :entry_by_url do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'with multiple entries' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
     user: global
     password: global-pass
     perforce:
@@ -399,15 +445,10 @@ eos
                                              )
         )
       end
-      it 'returns the correct perforce user values based on priority' do
-        entry = config.git_fusion.entry
-        expect(entry.perforce_user).to eq('perforce-user')
-        entry = config.git_fusion.entry('bar')
-        expect(entry.perforce_user).to eq('global-perforce-user')
-        entry = config.git_fusion.entry('foo')
-        expect(entry.perforce_user).to eq('global-perforce-user')
-        entry = config.git_fusion.entry('yoda')
-        expect(entry.perforce_user).to eq('global-perforce-user')
+      it 'returns the correct entry for a given URL' do
+        config.git_fusion.entries.each do |id, entry|
+          expect(config.git_fusion.entry_by_url(entry['url'])['id']).to eq(id)
+        end
       end
     end
   end
