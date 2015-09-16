@@ -14,11 +14,11 @@ describe PerforceSwarm::P4::Connection do
     @p4config = PerforceSwarm::GitFusion::Config.new(
         'enabled' => true,
         'default' => {
-            'url'  => 'foo@unknown-host',
-            'user' => 'p4test',
-            'perforce' => {
-                'port' => "rsh:#{@p4d} -r #{@p4root} -i -q"
-            }
+          'url'   => 'foo@unknown-host',
+          'user'  => 'p4test',
+          'perforce' => {
+            'port' => "rsh:#{@p4d} -r #{@p4root} -i -q"
+          }
         }
     ).entry
     @connection = PerforceSwarm::P4::Connection.new(@p4config, @p4root)
@@ -82,9 +82,9 @@ describe PerforceSwarm::P4::Connection do
       pending('P4::Connection tests require the p4d executable in your path.') if @p4d.empty?
       @connection.connect
       user_spec = {
-          'User'    =>  'test-user',
-          'Email'    => 'test-user@localhost',
-          'FullName' => 'test-user'
+        'User'     =>  'test-user',
+        'Email'    => 'test-user@localhost',
+        'FullName' => 'test-user'
       }
       @connection.input(user_spec).run('user', '-if')
       users = @connection.run('users')
