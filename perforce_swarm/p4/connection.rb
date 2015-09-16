@@ -33,8 +33,8 @@ module PerforceSwarm
           message = e.message
 
           # check for user existence
-          not_exists = message.downcase.include?("doesn't exist") ||
-              message.downcase.include?("has not been enabled by 'p4 protect'")
+          not_exists = message.downcase.include?(
+              "doesn't exist") || message.downcase.include?("has not been enabled by 'p4 protect'")
           raise PerforceSwarm::P4::IdentityNotFound, 'Login failed. ' + message if not_exists
 
           # invalid password
