@@ -1,5 +1,5 @@
 source "http://rubygems.org"
-
+eval_gemfile File.join(File.dirname(__FILE__), 'perforce_swarm/Gemfile')
 group :development, :test do
   gem 'coveralls', require: false
   gem 'rspec', '~> 2.14.0'
