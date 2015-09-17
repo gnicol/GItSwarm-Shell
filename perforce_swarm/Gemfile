@@ -1,0 +1,2 @@
+source 'http://rubygems.org'
+gem 'p4ruby', '2015.1.0'
