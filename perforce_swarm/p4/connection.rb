@@ -13,7 +13,8 @@ module PerforceSwarm
         fail 'A Perforce user ID is required.' if !config.perforce_user || config.perforce_user.empty?
       end
 
-      def initialize(config = nil, p4_dir)
+      def initialize(config = nil, p4_dir = nil)
+        p4_dir ||= File.join(Gitlab.config.gitlab['user_home'], 'p4')
         ENV['P4TICKETS'] = File.join(p4_dir, '.p4tickets') if File.exist?(p4_dir)
         ENV['P4TRUST']   = File.join(p4_dir, '.p4trust')   if File.exist?(p4_dir)
         @p4              = ::P4.new
