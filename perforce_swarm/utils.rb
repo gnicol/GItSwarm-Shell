@@ -8,21 +8,23 @@ module PerforceSwarm
       end
 
       path  ||= Dir.pwd
-      vars    = {'PWD'                 => path,
-                 'GIT_SSH_COMMAND'     => 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no',
-                 'GIT_TERMINAL_PROMPT' => '0',
-                 'PATH'                => "#{RbConfig::CONFIG['bindir']}:#{ENV['PATH']}"
+      vars    = { 'PWD'                 => path,
+                  'GIT_SSH_COMMAND'     => 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no',
+                  'GIT_TERMINAL_PROMPT' => '0',
+                  'PATH'                => "#{RbConfig::CONFIG['bindir']}:#{ENV['PATH']}"
       }
 
       # set the LANG and LC_ALL environment variables if we can determine a locale
       begin
         locale         = determine_user_locale
-        vars['LANG']   = locale
-        vars['LC_ALL'] = locale
-      rescue => _
+      rescue
+        # no locale was determined
+        locale = nil
       end
+      vars['LANG']   = locale
+      vars['LC_ALL'] = locale
 
-      options = {chdir: path}
+      options = { chdir: path }
 
       FileUtils.mkdir_p(path) unless File.directory?(path)
 
@@ -73,10 +75,10 @@ module PerforceSwarm
     # If no valid utf8 value is found we fail out
     def self.determine_user_locale
       # Read the ~/.bashrc for the current user and return the value of LANG or LC_ALL if they have it
-      bashrc_path = File.expand_path('~/.bashrc')
-      bashrc      = File.read(bashrc_path) if File.readable?(bashrc_path)
-      locale      = bashrc[/^\s*export\s*(LANG|LC_ALL)\s*=\s*([^\#]+).*$/, 2] if bashrc
-      return locale.gsub(/['"]/, '').strip if locale
+      bashrc_path   = File.expand_path('~/.bashrc')
+      bashrc        = File.read(bashrc_path) if File.readable?(bashrc_path)
+      bashrc_locale = bashrc[/^\s*export\s*(LANG|LC_ALL)\s*=\s*([^\#]+).*$/, 2] if bashrc
+      return bashrc_locale.gsub(/['"]/, '').strip if bashrc_locale
 
       # If we can't scrape a usable variable value from the current user; this is our preferred fallbacks
       preferred_locales = %w(en_US.utf8 en_US.UTF-8 en_CA.utf8 en_CA.UTF-8 en_GB.utf8 en_GB.UTF-8)
@@ -98,9 +100,8 @@ module PerforceSwarm
       end
 
       # Fail if specified variable is not set for current user or no UTF-8 values were found in the list of locales
-      fail "Could not determine a workable locale setting for LANG or LC_ALL." if !lang || !lang.match(regex)
+      fail 'Could not determine a workable locale setting for LANG or LC_ALL.' if !lang || !lang.match(regex)
       lang
     end
-
   end
 end
