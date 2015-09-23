@@ -4,8 +4,17 @@ module PerforceSwarm
       class User
         # Create the specified user. If the user already exists they will be updated with any modified 'extra' details.
         def self.create(connection, id, extra = {})
-          # P4::Spec returned by 'last' subclasses Hash, merge in any extras overwriting any existing
-          connection.input = connection.run(*%W(user -o #{id})).last.merge!(extra)
+          spec = connection.run(*%W(user -o #{id})).last
+          # P4::Spec returned by 'last' subclasses Hash, if we merge! in extra then
+          # this bypasses the validation that would be carried out on permitted
+          # fields and they would simply get ignored. Running spec._<field> = <value>
+          # causes validation to happen with P4Exception: Invalid field raised for
+          # errors
+          extra.each do |key, value|
+            spec.send("_#{key}", value)
+          end
+          # All validates so merge in
+          connection.input = spec.merge!(extra)
           connection.run(*%w(user -i -f))
         end
 
