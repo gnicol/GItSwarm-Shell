@@ -71,31 +71,6 @@ module PerforceSwarm
         @p4.password = response
       end
 
-      def create_user(username)
-        self.input = run(*%W(user -o #{username}))
-        run(*%w(user -i -f))
-      end
-
-      # Give the specified user the specified privilege.
-      def add_user_privilege(username, privilege, path)
-        protections = run(*%w(protect -o))
-        protections.first['Protections'].push "#{privilege} user #{username} * #{path}"
-        self.input = protections
-        run(*%w(protect -i))
-      end
-
-      # Sets the P4D password for the specified user. This is done using the 'gitswarm' super user.
-      def set_password(username, passwd)
-        self.input = "#{passwd}"
-        run(*%W(passwd #{username}))
-      end
-
-      # Creates the specified depot
-      def create_depot(depot)
-        self.input = run(*%W(depot -o #{depot}))
-        run(%w(depot -i -f))
-      end
-
       # wrapper around the run method, which handles charset and untrusted server issues
       def run(*args)
         connect unless connected?

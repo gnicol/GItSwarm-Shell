@@ -17,6 +17,12 @@ module PerforceSwarm
           # command bombed for whatever reason, so return false/empty
           return id.is_a?(Array) ? [] : false
         end
+
+        # Create the specified depot. If the depot already exists it will be updated with any modified 'extra' details.
+        def self.create(connection, id, extra = {})
+          connection.input = connection.run(*%W(depot -o #{id})).last + extra
+          connection.run(%w(depot -i -f))
+        end
       end
     end
   end
