@@ -20,7 +20,8 @@ module PerforceSwarm
 
         # Create the specified depot. If the depot already exists it will be updated with any modified 'extra' details.
         def self.create(connection, id, extra = {})
-          connection.input = connection.run(*%W(depot -o #{id})).last + extra
+          # P4::Spec returned by 'last' subclasses Hash, merge in any extras overwriting any existing
+          connection.input = connection.run(*%W(depot -o #{id})).last.merge!(extra)
           connection.run(%w(depot -i -f))
         end
       end

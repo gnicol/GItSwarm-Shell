@@ -4,7 +4,8 @@ module PerforceSwarm
       class User
         # Create the specified user. If the user already exists they will be updated with any modified 'extra' details.
         def self.create(connection, id, extra = {})
-          connection.input = connection.run(*%W(user -o #{id})).last + extra
+          # P4::Spec returned by 'last' subclasses Hash, merge in any extras overwriting any existing
+          connection.input = connection.run(*%W(user -o #{id})).last.merge!(extra)
           connection.run(*%w(user -i -f))
         end
 
