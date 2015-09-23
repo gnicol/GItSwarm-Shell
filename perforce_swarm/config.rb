@@ -26,6 +26,10 @@ module PerforceSwarm
         @config['enabled']
       end
 
+      def fetch_worker
+        @config['fetch_worker'] || {}
+      end
+
       def entries
         entries = @config.select do |id, value|
           value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty? && id != 'global'
