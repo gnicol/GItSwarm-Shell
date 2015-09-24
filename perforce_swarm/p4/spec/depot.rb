@@ -4,7 +4,7 @@ module PerforceSwarm
       class Depot
         # given a connection and either a single depot or an array of them, this method returns either a boolean
         # true/false for the existence of a single depot or a list of depots that exist if given more than one
-        def self.exists?(id, connection)
+        def self.exists?(connection, id)
           found = []
           ids   = [*id]
           connection.run('depots').each do |depot|
@@ -20,8 +20,15 @@ module PerforceSwarm
 
         # Create the specified depot. If the depot already exists it will be updated with any modified 'extra' details.
         def self.create(connection, id, extra = {})
-          # P4::Spec returned by 'last' subclasses Hash, merge in any extras overwriting any existing
-          connection.input = connection.run(*%W(depot -o #{id})).last.merge!(extra)
+          connection.input = connection.run(*%W(depot -o #{id})).last
+          # P4::Spec returned by 'last' subclasses Hash, if we merge! in extra then
+          # this bypasses the validation that would be carried out on permitted
+          # fields and they would simply get ignored. Running spec[<field>] = <value>
+          # causes validation to happen with P4Exception: Invalid field raised for
+          # errors
+          extra.each do |key, value|
+            connection.input[key] = value
+          end
           connection.run(%w(depot -i -f))
         end
       end

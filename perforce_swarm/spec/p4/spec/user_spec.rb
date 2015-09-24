@@ -34,7 +34,7 @@ describe PerforceSwarm::P4::Spec::User do
   describe :user do
     it 'creates a user with no extra parameters' do
       output = PerforceSwarm::P4::Spec::User.create(@connection, test_user).last
-      user_spec = @connection.run('user', '-o', test_user).last
+      user_spec = @connection.run(%W(user -o #{test_user})).last
       expect(output.match("User #{test_user} saved")).to be_true
       expect(user_spec['User'].eql?(test_user)).to be_true
       expect(user_spec['Type'].eql?('standard')).to be_true
@@ -44,7 +44,7 @@ describe PerforceSwarm::P4::Spec::User do
       output = PerforceSwarm::P4::Spec::User.create(@connection,
                                                     test_user,
                                                     'Password' => 'bar').last
-      user_spec = @connection.run('user', '-o', test_user).last
+      user_spec = @connection.run(%W(user -o #{test_user})).last
       expect(output.match("User #{test_user} saved")).to be_true
       expect(user_spec['User'].eql?(test_user)).to be_true
       expect(user_spec['Type'].eql?('standard')).to be_true
@@ -55,7 +55,7 @@ describe PerforceSwarm::P4::Spec::User do
       output = PerforceSwarm::P4::Spec::User.create(@connection,
                                                     test_user,
                                                     'Password' => 'bar', 'Email' => 'x@y.com').last
-      user_spec = @connection.run('user', '-o', test_user).last
+      user_spec = @connection.run(%W(user -o #{test_user})).last
       expect(output.match("User #{test_user} saved")).to be_true
       expect(user_spec['User'].eql?(test_user)).to be_true
       expect(user_spec['Type'].eql?('standard')).to be_true
