@@ -3,7 +3,8 @@ require_relative '../../../p4/connection'
 require_relative '../../../p4/spec/user'
 require_relative '../../../git_fusion'
 
-describe PerforceSwarm::P4::Connection do
+describe PerforceSwarm::P4::Spec::User do
+  test_user = 'test-user'
   # ensure we can even run the tests by looking for p4d executable
   before(:all) do
     @p4d = `PATH=$PATH:/opt/perforce/sbin which p4d`.strip
@@ -31,8 +32,7 @@ describe PerforceSwarm::P4::Connection do
   end
 
   describe :user do
-    test_user = 'test-user'
-    it 'creates a user' do
+    it 'creates a user with no extra parameters' do
       output = PerforceSwarm::P4::Spec::User.create(@connection, test_user).last
       user_spec = @connection.run('user', '-o', test_user).last
       expect(output.match("User #{test_user} saved")).to be_true
@@ -51,12 +51,57 @@ describe PerforceSwarm::P4::Connection do
       expect(user_spec['Password'].eql?('******')).to be_true
     end
 
+    it 'creates a user with extra parameters and overrides' do
+      output = PerforceSwarm::P4::Spec::User.create(@connection,
+                                                    test_user,
+                                                    'Password' => 'bar', 'Email' => 'x@y.com').last
+      user_spec = @connection.run('user', '-o', test_user).last
+      expect(output.match("User #{test_user} saved")).to be_true
+      expect(user_spec['User'].eql?(test_user)).to be_true
+      expect(user_spec['Type'].eql?('standard')).to be_true
+      expect(user_spec['Password'].eql?('******')).to be_true
+      expect(user_spec['Email'].eql?('x@y.com')).to be_true
+    end
+
     it 'fails to create a user with extra invalid parameters' do
       expect do
         PerforceSwarm::P4::Spec::User.create(
                   @connection,
                   test_user,
-                  'Password' => 'bar', 'foo' => 'bar').last.to raise_error(P4Exception)
+                  'Password' => 'bar', 'foo' => 'bar').to raise_error(P4Exception)
+      end
+    end
+  end
+
+  describe :privilege do
+    it 'adds a privilege to protections' do
+      output = PerforceSwarm::P4::Spec::User.add_privilege(@connection, test_user, 'super', '//...').last
+      expect(output.match('Protections saved')).to be_true
+      protections = @connection.run(*%w(protect -o)).last
+      expect(protections['Protections'].last.eql?("super user #{test_user} * //...")).to be_true
+    end
+
+    it 'fails to add a privilege with a bad permission' do
+      expect do
+        PerforceSwarm::P4::Spec::User.add_privilege(
+                  @connection,
+                  test_user,
+                  'superdooper',
+                  '//...').to raise_error(P4Exception)
+      end
+    end
+  end
+
+  describe :password do
+    it 'sets a password for a user' do
+      PerforceSwarm::P4::Spec::User.create(@connection, test_user)
+      output = PerforceSwarm::P4::Spec::User.set_password(@connection, test_user, '1234').last
+      expect(output.match('Password updated')).to be_true
+    end
+
+    it 'fails to set a password when the user does not exist' do
+      expect do
+        PerforceSwarm::P4::Spec::User.set_password(@connection, 'duff user', '1234').to raise_error(P4Exception)
       end
     end
   end
