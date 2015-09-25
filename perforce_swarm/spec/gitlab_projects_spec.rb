@@ -24,13 +24,7 @@ describe GitlabProjects do
       gl_projects_import.exec
     end
 
-    it 'should not fork without a destination namespace' do
-      missing_arg = build_gitlab_projects('fork-project', source_repo_name)
-      $logger.should_receive(:error).with('fork-project failed: no destination namespace provided.')
-      missing_arg.exec.should be_false
-    end
-
-    it "can fork into a namespace that doesn't exist" do
+    it "should not fork into a namespace that doesn't exist", override: true do
       gl_projects_fork.exec.should be_true
       File.exist?(dest_repo).should be_true
       File.exist?(File.join(dest_repo, '/hooks/pre-receive')).should be_true
