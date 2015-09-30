@@ -412,6 +412,81 @@ eos
     end
   end
 
+  describe :auto_provisioned_entry do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'with an auto provision entry' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
+    user: global
+    password: global-pass
+    perforce:
+      user: global-perforce-user
+      password: global-perforce-pass
+  default:
+    url: "foo@bar"
+    perforce:
+      user: perforce-user
+      password: perforce-pass
+  bar:
+    auto_provision: true
+    url: "http://somehost"
+  foo:
+    url: "http://baz"
+    user: "foo-user"
+    password: "foopass"
+  yoda:
+    url: "http://foo:pass@bar"
+eos
+
+                                             )
+        )
+      end
+      it 'returns the auto provisioned entry' do
+        expect(config.git_fusion.auto_provisioned_entry['id']).to eq('bar')
+      end
+    end
+
+    context 'without an auto provision entry' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
+    user: global
+    password: global-pass
+    perforce:
+      user: global-perforce-user
+      password: global-perforce-pass
+  default:
+    url: "foo@bar"
+    perforce:
+      user: perforce-user
+      password: perforce-pass
+  bar:
+    url: "http://somehost"
+  foo:
+    url: "http://baz"
+    user: "foo-user"
+    password: "foopass"
+  yoda:
+    url: "http://foo:pass@bar"
+eos
+
+                                             )
+        )
+      end
+      it 'raises an error' do
+        expect { config.git_fusion.auto_provisioned_entry }.to raise_error(RuntimeError)
+      end
+    end
+  end
+
   describe :entry_by_url do
     let(:config) { PerforceSwarm::GitlabConfig.new }
 

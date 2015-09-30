@@ -38,6 +38,14 @@ module PerforceSwarm
         end
       end
 
+      # returns the auto provisioned entry if found, otherwise raises an exception
+      def auto_provisioned_entry
+        entries.each do |_id, entry|
+          return entry if entry['auto_provision']
+        end
+        fail 'Auto provision entry not found.'
+      end
+
       def entry_by_url(url)
         url = PerforceSwarm::GitFusion::URL.new(url) unless url.is_a?(PerforceSwarm::GitFusion::URL)
         url = url.clear_path
