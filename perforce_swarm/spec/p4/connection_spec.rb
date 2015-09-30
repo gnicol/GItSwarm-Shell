@@ -1,6 +1,7 @@
 require_relative '../spec_helper'
 require_relative '../../p4/connection'
 require_relative '../../git_fusion'
+require_relative '../../p4/spec/user'
 
 describe PerforceSwarm::P4::Connection do
   # ensure we can even run the tests by looking for p4d executable
@@ -191,10 +192,8 @@ describe PerforceSwarm::P4::Connection do
 
   # helper functions
   def create_user(connection, user, password)
-    connection.with_temp_client do
-      user_spec             = connection.run('user', '-o', user)[0]
-      user_spec['Password'] = password
-      connection.input(user_spec).run('user', '-i', '-f')
-    end
+    PerforceSwarm::P4::Spec::User.create(connection,
+                                         user,
+                                         'Password' => password)
   end
 end
