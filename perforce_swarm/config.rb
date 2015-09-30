@@ -38,12 +38,12 @@ module PerforceSwarm
         end
       end
 
-      def auto_provisioned_instance_id
-        id, _instance = @config.detect do |_k, v|
-          next unless v.is_a?(Hash)
-          v.key?('auto_provision')
+      # returns the auto provisioned entry if found, otherwise raises an exception
+      def auto_provisioned_entry
+        entries.each do |_id, entry|
+          return entry if entry['auto_provision']
         end
-        id
+        fail 'Auto provision entry not found.'
       end
 
       def entry_by_url(url)
