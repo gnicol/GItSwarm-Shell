@@ -63,6 +63,10 @@ describe PerforceSwarm::P4::Spec::Client do
       expect(p4_client_util.get_client_by_id(@connection, test_client)).to_not be_nil
     end
 
+    it 'is possible to get a default client' do
+      expect(p4_client_util.get_client(@connection)).to_not be_nil
+    end
+
     it 'is possible to get a client after save temp when still connected' do
       p4_client_util.save_temp(@connection, p4_client_util.create(@connection, test_client))
       expect(p4_client_util.get_client_by_id(@connection, test_client)).to_not be_nil
