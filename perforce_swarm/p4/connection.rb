@@ -1,6 +1,7 @@
 require 'P4'
 require 'securerandom'
 require_relative 'exceptions'
+require_relative 'spec/client'
 
 module PerforceSwarm
   module P4
@@ -110,29 +111,20 @@ module PerforceSwarm
       def with_temp_client
         Dir.mktmpdir do |tmpdir|
           old_client = client
+          p4_client_util = PerforceSwarm::P4::Spec::Client
           begin
             # create a temporary workspace/client, and set ourselves to use it
-            spec        = temp_client_spec(tmpdir)
+            spec = p4_client_util.create(self, temp_client_id, 'Root' => tmpdir)
             self.client = spec['Client']
-            self.input  = spec
-            run('client', '-x', '-i')
-
+            p4_client_util.save_temp(self, spec)
             # run the code we were asked to
             yield(tmpdir, spec, self)
           ensure
             # disconnect, which will delete our temporary client
             disconnect
-
             self.client = old_client
           end
         end
-      end
-
-      def temp_client_spec(local_dir)
-        client_id           = temp_client_id
-        client_spec         = run('client', '-o', client_id)[0]
-        client_spec['Root'] = local_dir
-        client_spec
       end
 
       def temp_client_id
