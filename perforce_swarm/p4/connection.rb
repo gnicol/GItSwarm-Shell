@@ -79,7 +79,6 @@ module PerforceSwarm
         connect unless connected?
         info('start command:', args)
         last_input = input
-        @p4.client = 'xx' unless @p4.client
         result = @p4.run(*args)
         # reset our stored input
         self.input = ''
