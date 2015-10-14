@@ -42,7 +42,6 @@ describe PerforceSwarm::P4::Spec::Client do
     it 'creates a client with extra parameters' do
       client_spec = p4_client_util.create(@connection, test_client,
                                           'Root' => '/root', 'View' => ["//depot/... //#{test_client}/extra"])
-      puts "Client spec #{client_spec}"
       expect(client_spec).to_not be_nil
       expect(client_spec['Client'].eql?(test_client)).to be_true
       expect(client_spec['Root'].eql?('/root')).to be_true
