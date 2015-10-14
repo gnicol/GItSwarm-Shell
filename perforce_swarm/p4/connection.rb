@@ -18,6 +18,9 @@ module PerforceSwarm
         ENV['P4TICKETS'] = File.join(p4_dir, '.p4tickets') if File.exist?(p4_dir)
         ENV['P4TRUST']   = File.join(p4_dir, '.p4trust')   if File.exist?(p4_dir)
         @p4              = ::P4.new
+        # Default the client initially to stop it being defaulted to the hostname which can lead to
+        # '<hostname> is a depot, not a client'
+        @p4.client       = temp_client_id
         self.config      = config if config
       end
 
