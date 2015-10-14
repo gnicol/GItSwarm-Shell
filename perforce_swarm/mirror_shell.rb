@@ -24,6 +24,7 @@ module PerforceSwarm
         false
       end
     rescue StandardError => e
+      puts e.message
       $logger.error "gitswarm-mirror command #{@command.inspect} failed for: #{@project_name.inspect}\n#{e.message}"
       false
     end
@@ -33,7 +34,7 @@ module PerforceSwarm
     def fetch
       fail 'No project name was specified' unless @project_name && @full_path
       repo = Repo.new(@full_path)
-      return false unless repo.mirrored?
+      return true unless repo.mirrored?
 
       # deal with parsing out any known options
       wait_if_busy    = false
@@ -69,6 +70,7 @@ module PerforceSwarm
 
       true
     rescue => ex
+      puts ex.message
       $logger.error("gitswarm-mirror fetch failed. #{ex.class} #{ex.message}")
       false
     end
