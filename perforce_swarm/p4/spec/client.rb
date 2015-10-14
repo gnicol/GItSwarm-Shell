@@ -16,16 +16,8 @@ module PerforceSwarm
           spec
         end
 
-        def self.save(connection, spec)
-          save_client(connection, false, spec)
-        end
-
-        def self.save_temp(connection, spec)
-          save_client(connection, true, spec)
-        end
-
-        def self.save_client(connection, temp, spec)
-          command = temp ? %w(client -x -i) : %w(client -i)
+        def self.save(connection, spec, temporary_client = false)
+          command = temporary_client ? %w(client -x -i) : %w(client -i)
           connection.input = spec
           connection.run(*command)
         end
@@ -37,8 +29,8 @@ module PerforceSwarm
           false
         end
 
-        def self.get_client(connection)
-          connection.run(%w(client -o))
+        def self.get_client(connection, id = nil)
+          connection.run(id ? %W(client -o #{id}) : %w(client -o))
         end
 
         def self.get_client_by_id(connection, id)

@@ -116,7 +116,7 @@ module PerforceSwarm
             # create a temporary workspace/client, and set ourselves to use it
             spec = p4_client_util.create(self, temp_client_id, 'Root' => tmpdir)
             self.client = spec['Client']
-            p4_client_util.save_temp(self, spec)
+            p4_client_util.save(self, spec, true)
             # run the code we were asked to
             yield(tmpdir, spec, self)
           ensure
