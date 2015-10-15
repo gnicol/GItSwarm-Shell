@@ -32,10 +32,6 @@ module PerforceSwarm
         def self.get_client(connection, id = nil)
           connection.run(id ? %W(client -o #{id}) : %w(client -o))
         end
-
-        def self.get_client_by_id(connection, id)
-          connection.run(%W(client -o #{id}))
-        end
       end
     end
   end
