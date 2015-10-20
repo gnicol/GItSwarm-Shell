@@ -1,63 +1,15 @@
 #!/usr/bin/env ruby
 
 require_relative '../init'
-require 'timeout'
+require_relative '../mirror_lock_socket'
 
 # we'll listen on a unix socket for the commands "LOCK\n" or "UNLOCK\n" from the pre-receive/post-receive hooks
 # if invoked, we'll send back "LOCKED\n" post acquisition or "UNLOCKED\n" post release
 # we only do this if we were passed the path to a valid repo with mirroring enabled
 repo_path = ARGV.length > 0 && File.realpath(ARGV.last) rescue false
-repo      = PerforceSwarm::Repo.new(repo_path)
 
-if repo_path && repo.mirrored?
-  push_lock = nil # keeping the handle scoped outside the thread is important!
-  lock_socket = "#{repo_path}/mirror_push-#{Process.pid}.socket"
-  ENV['WRITE_LOCK_SOCKET'] = lock_socket
-  File.unlink(lock_socket) if File.exist?(lock_socket)
-  thread = Thread.new do
-    begin
-      Socket.unix_server_loop(lock_socket) do |socket|
-        begin
-          # just encase an evil do-er connects; only wait 5 seconds for a command don't block forever
-          command = nil
-          Timeout.timeout 5 do
-            command = socket.gets.strip
-          end
-
-          case command
-          when 'LOCK'
-            push_lock = PerforceSwarm::Mirror.write_lock(repo_path)
-          when 'UNLOCK'
-            PerforceSwarm::Mirror.write_unlock(repo_path)
-          else
-            # ignore unknown commands
-            socket.puts 'UNKNOWN'
-            $logger.error "Lock socket received invalid command: #{command}"
-            next
-          end
-
-          socket.puts "#{command}ED"
-        rescue Timeout::Error
-          socket.puts 'TIMEOUT'
-          $logger.error 'Lock socket timed out waiting for a command'
-          next
-        ensure
-          socket.flush
-          socket.close
-        end
-      end
-    rescue Errno::ENOENT => e
-      # the unix_server_loop attempts to clean up the socket file but its unreliable so we also clean it up
-      # just eat the unlink exception that occurs if we beat them to the punch; re-raise anything else
-      raise e unless e.message =~ /@ unlink/
-    end
-  end
-  thread.abort_on_exception = true
-else
-  # Set the lock socket so the mirroring code knows we are intentionally
-  # going to call it during receive-pack, but without a mirror.
-  ENV['WRITE_LOCK_SOCKET'] = PerforceSwarm::Mirror::NOT_MIRRORED
-end
+socket_server = PerforceSwarm::MirrorLockSocketServer.new(repo_path)
+socket_server.start
 
 # run the normal git-receive-pack giving it access to the lock socket
 begin
@@ -72,10 +24,7 @@ begin
   exit_status = $?.exitstatus
 ensure
   # ensure the thread is shutdown and cleanup our socket
-  if repo_path && repo.mirrored?
-    thread.kill
-    FileUtils.safe_unlink(lock_socket)
-  end
+  socket_server.stop
 
   # note exit status can be nil; we want to default to a failing code in that case
   exit exit_status || 1

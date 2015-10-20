@@ -14,13 +14,15 @@ module PerforceSwarm
       return false unless super
 
       # Transform the changes into an array of pushable ref updates
-      refs = []
-      changes.split(/\r\n|\r|\n/).each do |refline|
-        _src, tgt, ref = refline.strip.split
-        refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
-        refs.push(refspec)
+      unless ENV['MIRROR_HOOKS_DISABLED']
+        refs = []
+        changes.split(/\r\n|\r|\n/).each do |refline|
+          _src, tgt, ref = refline.strip.split
+          refspec = (tgt.match(/^0+$/) ? '' : tgt) + ':' + ref
+          refs.push(refspec)
+        end
+        Mirror.push(refs, repo_path, receive_pack: true)
       end
-      Mirror.push(refs, repo_path, receive_pack: true)
       true
     rescue Mirror::Exception
       return false
@@ -29,9 +31,11 @@ module PerforceSwarm
     def post_receive(changes, repo_path, options = {})
       $logger.debug 'Running PerforceSwarm custom hook post_receive'
 
-      options = { receive_pack: true }.merge(options)
-      # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
-      Mirror.lock_socket('UNLOCK') if options[:receive_pack] && Repo.new(repo_path).mirrored?
+      unless ENV['MIRROR_HOOKS_DISABLED']
+        options = { receive_pack: true }.merge(options)
+        # if this repo is mirroring, UNLOCK as we know refs have been updated at this point
+        Mirror.lock_socket('UNLOCK') if options[:receive_pack] && Repo.new(repo_path).mirrored?
+      end
       super(changes, repo_path)
     end
   end
