@@ -24,6 +24,7 @@ module PerforceSwarm
         false
       end
     rescue StandardError => e
+      puts e.message
       $logger.error "gitswarm-mirror command #{@command.inspect} failed for: #{@project_name.inspect}\n#{e.message}"
       false
     end
@@ -33,7 +34,7 @@ module PerforceSwarm
     def fetch
       fail 'No project name was specified' unless @project_name && @full_path
       repo = Repo.new(@full_path)
-      return false unless repo.mirrored?
+      return true unless repo.mirrored?
 
       # deal with parsing out any known options
       wait_if_busy    = false
@@ -56,11 +57,12 @@ module PerforceSwarm
       wait_if_busy = true if redis_on_finish
       fail '--redis-on-finish is not compatible with --min-outdated' if redis_on_finish && min_outdated
 
-      return false if !wait_if_busy && Mirror.fetch_locked?(@full_path)
+      return false if !wait_if_busy && (Mirror.fetch_locked?(@full_path) || Mirror.write_locked?(@full_path))
       return false if min_outdated && last_fetched && last_fetched > (Time.now - min_outdated)
 
       begin
-        Mirror.fetch!(@full_path)
+        skip_if_pushing = !wait_if_busy && !redis_on_finish
+        Mirror.fetch!(@full_path, skip_if_pushing)
         update_redis(true)  if redis_on_finish
       rescue => ex
         update_redis(false) if redis_on_finish
@@ -69,6 +71,7 @@ module PerforceSwarm
 
       true
     rescue => ex
+      puts ex.message
       $logger.error("gitswarm-mirror fetch failed. #{ex.class} #{ex.message}")
       false
     end
