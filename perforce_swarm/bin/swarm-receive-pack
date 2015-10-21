@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 
-require_relative '../init'
 require_relative '../mirror_lock_socket'
 
 # we'll listen on a unix socket for the commands "LOCK\n" or "UNLOCK\n" from the pre-receive/post-receive hooks
