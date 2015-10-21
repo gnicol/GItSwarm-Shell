@@ -18,10 +18,9 @@ module PerforceSwarm
         @config = config.is_a?(Hash) ? config : {}
         @config['enabled']        ||= false
         @config['fetch_worker']     = {} unless @config['fetch_worker'].is_a?(Hash)
-        @config['fetch_worker'].merge!(
-            'max_fetch_slots' => DEFAULT_MAX_FETCH_SLOTS,
-            'min_outdated'    => DEFAULT_MIN_OUTDATED
-        )
+        @config['fetch_worker']     = { 'max_fetch_slots' => DEFAULT_MAX_FETCH_SLOTS,
+                                        'min_outdated'    => DEFAULT_MIN_OUTDATED
+        }.merge(@config['fetch_worker'])
         @config
       end
 
