@@ -62,8 +62,8 @@ module PerforceSwarm
 
     def stop
       if @repo.mirrored?
-        @thread.kill
-        FileUtils.safe_unlink(@lock_socket)
+        @thread.kill if @thread
+        FileUtils.safe_unlink(@lock_socket) if @lock_socket
       end
     end
   end

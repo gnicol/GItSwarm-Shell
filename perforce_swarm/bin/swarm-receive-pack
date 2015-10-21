@@ -6,7 +6,6 @@ require_relative '../mirror_lock_socket'
 # if invoked, we'll send back "LOCKED\n" post acquisition or "UNLOCKED\n" post release
 # we only do this if we were passed the path to a valid repo with mirroring enabled
 repo_path = ARGV.length > 0 && File.realpath(ARGV.last) rescue false
-
 socket_server = PerforceSwarm::MirrorLockSocketServer.new(repo_path)
 socket_server.start
 
