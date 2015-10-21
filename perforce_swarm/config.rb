@@ -130,8 +130,8 @@ module PerforceSwarm
       def global
         # ensure defaults are set correctly, and url/label are removed from the global config
         global_config                = @global.is_a?(Hash) ? @global.clone : {}
-        global_config['user']      ||= DEFAULT_USER
-        global_config['password']  ||= DEFAULT_PASSWORD
+        global_config['user']      ||= PerforceSwarm::Config::DEFAULT_USER
+        global_config['password']  ||= PerforceSwarm::Config::DEFAULT_PASSWORD
         global_config['perforce']    = {} unless global_config['perforce'].is_a?(Hash)
         global_config['auto_create'] = {} unless global_config['auto_create'].is_a?(Hash)
         global_config.delete('url')
