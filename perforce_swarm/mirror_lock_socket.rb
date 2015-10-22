@@ -15,7 +15,6 @@ module PerforceSwarm
         return
       end
 
-      push_lock = nil # keeping the handle scoped outside the thread is important!
       @lock_socket = "#{@repo.path}/mirror_push-#{Process.pid}.socket"
       ENV['WRITE_LOCK_SOCKET'] = @lock_socket
       File.unlink(@lock_socket) if File.exist?(@lock_socket)
@@ -31,7 +30,8 @@ module PerforceSwarm
 
               case command
               when 'LOCK'
-                push_lock = PerforceSwarm::Mirror.write_lock(@repo.path)
+                # keeping the handle scoped outside the thread is important!
+                @push_lock = PerforceSwarm::Mirror.write_lock(@repo.path)
               when 'UNLOCK'
                 PerforceSwarm::Mirror.write_unlock(@repo.path)
               else
