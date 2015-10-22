@@ -217,6 +217,64 @@ eos
     end
   end
 
+  describe :fetch_worker do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+    context 'without fetch_worker settings' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+  yoda:
+    url: "http://foo@bar"
+eos
+
+                                             )
+        )
+        mock_config = PerforceSwarm::GitlabConfig
+        mock_config.stub(:new).and_return(config)
+      end
+      it 'returns the default settings for fetch_worker configuration' do
+        git_fusion_config = config.git_fusion
+        expect(git_fusion_config.fetch_worker).to_not be_nil, git_fusion_config.inspect
+        expect(git_fusion_config.fetch_worker['min_outdated']).to eq(300), git_fusion_config.inspect
+        expect(git_fusion_config.fetch_worker['max_fetch_slots']).to eq(2), git_fusion_config.inspect
+      end
+    end
+    context 'with fetch_worker settings' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  fetch_worker:
+    min_outdated: 600
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+  yoda:
+    url: "http://foo@bar"
+eos
+
+                                             )
+        )
+        mock_config = PerforceSwarm::GitlabConfig
+        mock_config.stub(:new).and_return(config)
+      end
+      it 'returns the non-default settings for fetch_worker configuration' do
+        git_fusion_config = config.git_fusion
+        expect(git_fusion_config.fetch_worker).to_not be_nil, git_fusion_config.inspect
+        expect(git_fusion_config.fetch_worker['min_outdated']).to eq(600), git_fusion_config.inspect
+        expect(git_fusion_config.fetch_worker['max_fetch_slots']).to eq(2), git_fusion_config.inspect
+      end
+    end
+  end
+
   describe :version_check do
     let(:config) { PerforceSwarm::GitlabConfig.new }
     context 'without global settings' do

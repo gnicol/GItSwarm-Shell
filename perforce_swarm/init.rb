@@ -97,6 +97,16 @@ module PerforceSwarm
     rescue Mirror::Exception
       return false
     end
+
+    def fork_project
+      # ensure the namespace directory exists
+      new_namespace = ARGV[0]
+      if new_namespace
+        namespaced_path = File.join(repos_path, new_namespace)
+        FileUtils.mkdir_p(namespaced_path, mode: 0770) unless File.exist?(namespaced_path)
+      end
+      super
+    end
   end
 end
 

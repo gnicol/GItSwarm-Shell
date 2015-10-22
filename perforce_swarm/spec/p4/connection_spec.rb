@@ -1,6 +1,8 @@
 require_relative '../spec_helper'
 require_relative '../../p4/connection'
 require_relative '../../git_fusion'
+require_relative '../../p4/spec/user'
+require_relative '../../p4/spec/client'
 
 describe PerforceSwarm::P4::Connection do
   # ensure we can even run the tests by looking for p4d executable
@@ -117,7 +119,7 @@ describe PerforceSwarm::P4::Connection do
         expect(@connection.client).to start_with('gitswarm-temp-')
         expect(@connection.connected?).to be_true
         # grab the client spec
-        spec = @connection.run('client', '-o')
+        spec = PerforceSwarm::P4::Spec::Client.get_client(@connection)
         spec = spec.first
         client_name = spec['Client']
         client_root = spec['Root']
@@ -128,9 +130,7 @@ describe PerforceSwarm::P4::Connection do
 
       # re-connect to ensure that our client was nuked
       @connection.connect
-      @connection.run('clients').each do |client|
-        expect(client['client']).to_not eq(client_name)
-      end
+      expect(PerforceSwarm::P4::Spec::Client.exists?(@connection, client_name)).to be_false
       @connection.disconnect
     end
   end
@@ -191,10 +191,8 @@ describe PerforceSwarm::P4::Connection do
 
   # helper functions
   def create_user(connection, user, password)
-    connection.with_temp_client do
-      user_spec             = connection.run('user', '-o', user)[0]
-      user_spec['Password'] = password
-      connection.input(user_spec).run('user', '-i', '-f')
-    end
+    PerforceSwarm::P4::Spec::User.create(connection,
+                                         user,
+                                         'Password' => password)
   end
 end

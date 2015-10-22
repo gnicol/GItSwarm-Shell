@@ -1,6 +1,7 @@
 require 'P4'
 require 'securerandom'
 require_relative 'exceptions'
+require_relative 'spec/client'
 
 module PerforceSwarm
   module P4
@@ -18,6 +19,9 @@ module PerforceSwarm
         ENV['P4TICKETS'] = File.join(p4_dir, '.p4tickets') if File.exist?(p4_dir)
         ENV['P4TRUST']   = File.join(p4_dir, '.p4trust')   if File.exist?(p4_dir)
         @p4              = ::P4.new
+        # Default the client initially to stop it being defaulted to the hostname which can lead to
+        # '<hostname> is a depot, not a client'
+        @p4.client       = temp_client_id
         self.config      = config if config
       end
 
@@ -110,29 +114,20 @@ module PerforceSwarm
       def with_temp_client
         Dir.mktmpdir do |tmpdir|
           old_client = client
+          p4_client_util = PerforceSwarm::P4::Spec::Client
           begin
             # create a temporary workspace/client, and set ourselves to use it
-            spec        = temp_client_spec(tmpdir)
+            spec = p4_client_util.create(self, temp_client_id, 'Root' => tmpdir)
             self.client = spec['Client']
-            self.input  = spec
-            run('client', '-x', '-i')
-
+            p4_client_util.save(self, spec, true)
             # run the code we were asked to
             yield(tmpdir, spec, self)
           ensure
             # disconnect, which will delete our temporary client
             disconnect
-
             self.client = old_client
           end
         end
-      end
-
-      def temp_client_spec(local_dir)
-        client_id           = temp_client_id
-        client_spec         = run('client', '-o', client_id)[0]
-        client_spec['Root'] = local_dir
-        client_spec
       end
 
       def temp_client_id
