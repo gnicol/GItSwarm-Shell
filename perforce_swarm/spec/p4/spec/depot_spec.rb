@@ -70,6 +70,7 @@ describe PerforceSwarm::P4::Spec::Depot do
       { '//.git-fusion/foo/bar'          => '.git-fusion',
         '//gitswarm/blah/blah'           => 'gitswarm',
         '//depot/with/trailing/dots/...' => 'depot',
+        '//depot'                        => 'depot',
         'invalid/depot/path'             => nil
       }.each do |path, id|
         expect(depot_spec.id_from_path(path)).to eq(id)

@@ -34,7 +34,7 @@ module PerforceSwarm
 
         # retrieve the depot name/ID from the given depot path
         def self.id_from_path(path)
-          path[%r{\A//([^/]+)/}, 1]
+          path[%r{\A//([^/]+)/?}, 1]
         end
       end
     end
