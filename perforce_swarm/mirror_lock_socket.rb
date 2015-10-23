@@ -12,7 +12,7 @@ module PerforceSwarm
       # we want to be a peer of the config file which is commonly a symlink
       # first we resolve the config file's location then go up a dir
       config_path = File.realpath(File.join(ROOT_PATH, 'config.yml'))
-      socket_path = File.expand_path(config_path, '..')
+      socket_path = File.expand_path('..', config_path)
 
       FileUtils.mkdir_p(socket_path)
       socket_path
