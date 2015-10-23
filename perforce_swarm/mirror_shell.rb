@@ -17,7 +17,8 @@ module PerforceSwarm
 
     def exec
       case @command
-      when 'fetch' then fetch
+      when 'fetch'  then fetch
+      when 'push'   then push
       else
         $logger.warn "Attempt to execute invalid gitswarm-mirror command #{@command.inspect}."
         puts 'not allowed'
@@ -30,6 +31,25 @@ module PerforceSwarm
     end
 
     protected
+
+    def push
+      fail 'No project name was specified' unless @project_name && @full_path
+      repo = Repo.new(@full_path)
+      return true unless repo.mirrored?
+
+      # calculate all existing heads/tags. we start by running 'git show-ref --heads --tags'
+      # we then split it into an array of entries. we wrap by making it colon not space delimited for sha:ref
+      refs = Mirror.show_ref(@full_path)
+      refs = refs.split("\n").map { |ref| ref.sub(' ', ':') }
+
+      # push all of the detected refs to the remote mirror
+      Mirror.push(refs, @full_path, require_block: false)
+      true
+    rescue => ex
+      puts ex.message
+      $logger.error("gitswarm-mirror push failed. #{ex.class} #{ex.message}")
+      false
+    end
 
     def fetch
       fail 'No project name was specified' unless @project_name && @full_path
