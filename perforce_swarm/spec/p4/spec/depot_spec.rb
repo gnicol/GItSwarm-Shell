@@ -63,4 +63,18 @@ describe PerforceSwarm::P4::Spec::Depot do
     expect(output.match("Depot #{test_depot} saved")).to be_true
     expect(PerforceSwarm::P4::Spec::Depot.exists?(@connection, test_depot)).to be_true
   end
+
+  describe :id_from_path do
+    it 'extracts the correct depot name/ID from the given path' do
+      depot_spec = PerforceSwarm::P4::Spec::Depot
+      { '//.git-fusion/foo/bar'          => '.git-fusion',
+        '//gitswarm/blah/blah'           => 'gitswarm',
+        '//depot/with/trailing/dots/...' => 'depot',
+        '//depot'                        => 'depot',
+        'invalid/depot/path'             => nil
+      }.each do |path, id|
+        expect(depot_spec.id_from_path(path)).to eq(id)
+      end
+    end
+  end
 end

@@ -8,15 +8,23 @@ require_relative '../../lib/gitlab_init'
 # Ex.
 #   /perforce_swarm/bin/gitswarm-mirror fetch gitlab/gitlab-ci.git
 #
-#   Or to return immediately if the repo has been updated within the last 300 seconds:
-#   /perforce_swarm/bin/gitswarm-mirror fetch --min-outdated=300 gitlab/gitlab-ci.git
+#     Or to return immediately if the repo has been updated within the last 300 seconds:
+#     /perforce_swarm/bin/gitswarm-mirror fetch --min-outdated=300 gitlab/gitlab-ci.git
 #
-#   Normally if a fetch is already active this just returns, if you want it to wait:
-#   /perforce_swarm/bin/gitswarm-mirror fetch --wait-if-busy gitlab/gitlab-ci.git
+#     Normally if a fetch is already active this just returns, if you want it to wait:
+#     /perforce_swarm/bin/gitswarm-mirror fetch --wait-if-busy gitlab/gitlab-ci.git
 #
-#   Other supported options:
-#     --redis-on-finish   Posts a #{config.redis_namespace}:queue:post_fetch event.
-#                         Forces --wait-if-busy. Not compatible with --min-outdated.
+#     Other supported options:
+#       --redis-on-finish   Posts a #{config.redis_namespace}:queue:post_fetch event.
+#                           Forces --wait-if-busy. Not compatible with --min-outdated.
+#
+#
+#  /perforce_swarm/bin/gitswarm-mirror push gitlab/gitlab-ci.git
+#
+#    Will cause all refs in the gitlab/gitlab-ce.git to be pushed to the remote mirror.
+#    Presently no additional options are supported.
+#
+#    *Note: If selective mirroring is enabled it will be honored; only active branches will be pushed.
 #
 require File.join(ROOT_PATH, 'perforce_swarm', 'mirror_shell')
 
