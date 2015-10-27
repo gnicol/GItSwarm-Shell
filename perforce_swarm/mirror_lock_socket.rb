@@ -1,10 +1,17 @@
 require_relative 'init'
+require 'fileutils'
 require 'timeout'
 
 module PerforceSwarm
   class MirrorLockSocketServer
     def initialize(repo_path)
       @repo = PerforceSwarm::Repo.new(repo_path)
+    end
+
+    def socket_path
+      socket_path = '/tmp/gitswarm-sockets'
+      FileUtils.mkdir_p(socket_path)
+      socket_path
     end
 
     def start
@@ -15,7 +22,7 @@ module PerforceSwarm
         return
       end
 
-      @lock_socket = "#{@repo.path}/mirror_push-#{Process.pid}.socket"
+      @lock_socket = File.join(socket_path, "mirror_push-#{Process.pid}.socket")
       ENV['WRITE_LOCK_SOCKET'] = @lock_socket
       File.unlink(@lock_socket) if File.exist?(@lock_socket)
       @thread = Thread.new do
