@@ -8,11 +8,13 @@ module PerforceSwarm
       end
 
       path  ||= Dir.pwd
-      vars    = { 'PWD' => path,
-                  'GIT_SSH_COMMAND' => 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no',
+      vars    = { 'PWD'                 => path,
+                  'GIT_SSH_COMMAND'     => 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=no',
                   'GIT_TERMINAL_PROMPT' => '0',
-                  'PATH' => "#{RbConfig::CONFIG['bindir']}:#{ENV['PATH']}"
-                }
+                  'PATH'                => "#{RbConfig::CONFIG['bindir']}:#{ENV['PATH']}",
+                  'LANG'                => nil, # sending an invalid value for LANG/LC_ALL causes badness on the
+                  'LC_ALL'              => nil  # Git Fusion side, so we nil these out when using popen
+      }
       options = { chdir: path }
 
       FileUtils.mkdir_p(path) unless File.directory?(path)

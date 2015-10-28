@@ -9,9 +9,18 @@ module PerforceSwarm
 
   module GitFusion
     class Config
+      DEFAULT_USER            = 'gitswarm'
+      DEFAULT_PASSWORD        = ''
+      DEFAULT_MAX_FETCH_SLOTS = 2
+      DEFAULT_MIN_OUTDATED    = 300
+
       def initialize(config)
         @config = config.is_a?(Hash) ? config : {}
-        @config['enabled'] ||= false
+        @config['enabled']        ||= false
+        @config['fetch_worker']     = {} unless @config['fetch_worker'].is_a?(Hash)
+        @config['fetch_worker']['max_fetch_slots'] ||= DEFAULT_MAX_FETCH_SLOTS
+        @config['fetch_worker']['min_outdated']    ||= DEFAULT_MIN_OUTDATED
+        @config
       end
 
       def [](key)
@@ -26,6 +35,10 @@ module PerforceSwarm
         @config['enabled']
       end
 
+      def fetch_worker
+        @config['fetch_worker']
+      end
+
       def entries
         entries = @config.select do |id, value|
           value.is_a?(Hash) && !value['url'].nil? && !value['url'].empty? && id != 'global'
@@ -36,6 +49,14 @@ module PerforceSwarm
           value['id'] = id
           entries[id] = GitFusion::ConfigEntry.new(value, @config['global'])
         end
+      end
+
+      # returns the auto provisioned entry if found, otherwise raises an exception
+      def auto_provisioned_entry
+        entries.each do |_id, entry|
+          return entry if entry['auto_provision']
+        end
+        fail 'Auto provision entry not found.'
       end
 
       def entry_by_url(url)
@@ -107,8 +128,8 @@ module PerforceSwarm
       def global
         # ensure defaults are set correctly, and url/label are removed from the global config
         global_config                = @global.is_a?(Hash) ? @global.clone : {}
-        global_config['user']      ||= 'gitswarm'
-        global_config['password']  ||= ''
+        global_config['user']      ||= Config::DEFAULT_USER
+        global_config['password']  ||= Config::DEFAULT_PASSWORD
         global_config['perforce']    = {} unless global_config['perforce'].is_a?(Hash)
         global_config['auto_create'] = {} unless global_config['auto_create'].is_a?(Hash)
         global_config.delete('url')

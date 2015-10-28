@@ -7,7 +7,7 @@ class GitlabShell
   class DisallowedCommandError < StandardError; end
   class InvalidRepositoryPathError < StandardError; end
 
-  GIT_COMMANDS = %w(git-upload-pack git-receive-pack git-upload-archive git-annex-shell).freeze
+  GIT_COMMANDS = %w(git-upload-pack git-receive-pack git-upload-archive git-annex-shell git-lfs-authenticate).freeze
 
   attr_accessor :key_id, :repo_name, :git_cmd, :repos_path, :repo_name
 
@@ -56,16 +56,29 @@ class GitlabShell
   def parse_cmd
     args = Shellwords.shellwords(@origin_cmd)
     @git_cmd = args.first
+    @git_access = @git_cmd
 
     raise DisallowedCommandError unless GIT_COMMANDS.include?(@git_cmd)
 
-    if @git_cmd == 'git-annex-shell'
+    case @git_cmd
+    when 'git-annex-shell'
       raise DisallowedCommandError unless @config.git_annex_enabled?
 
       @repo_name = escape_path(args[2].sub(/\A\/~\//, ''))
 
       # Make sure repository has git-annex enabled
-      init_git_annex(@repo_name)
+      init_git_annex(@repo_name) unless gcryptsetup?(args)
+    when 'git-lfs-authenticate'
+      raise DisallowedCommandError unless args.count >= 2
+      @repo_name = escape_path(args[1])
+      case args[2]
+      when 'download'
+        @git_access = 'git-upload-pack'
+      when 'upload'
+        @git_access = 'git-receive-pack'
+      else
+        raise DisallowedCommandError
+      end
     else
       raise DisallowedCommandError unless args.count == 2
       @repo_name = escape_path(args.last)
@@ -73,7 +86,7 @@ class GitlabShell
   end
 
   def verify_access
-    status = api.check_access(@git_cmd, @repo_name, @key_id, '_any')
+    status = api.check_access(@git_access, @repo_name, @key_id, '_any')
 
     raise AccessDeniedError, status.message unless status.allowed?
   end
@@ -98,6 +111,8 @@ class GitlabShell
 
       $logger.info "gitlab-shell: executing git-annex command <#{parsed_args.join(' ')}> for #{log_username}."
       exec_cmd(*parsed_args)
+    elsif @git_cmd == 'git-lfs-authenticate'
+      exec_cmd(@origin_cmd)
     else
       $logger.info "gitlab-shell: executing git command <#{@git_cmd} #{repo_full_path}> for #{log_username}."
       exec_cmd(@git_cmd, repo_full_path)
@@ -106,7 +121,18 @@ class GitlabShell
 
   # This method is not covered by Rspec because it ends the current Ruby process.
   def exec_cmd(*args)
-    Kernel::exec({ 'PATH' => ENV['PATH'], 'LD_LIBRARY_PATH' => ENV['LD_LIBRARY_PATH'], 'GL_ID' => @key_id }, *args, unsetenv_others: true)
+    env = {
+      'PATH' => ENV['PATH'],
+      'LD_LIBRARY_PATH' => ENV['LD_LIBRARY_PATH'],
+      'LANG' => ENV['LANG'],
+      'GL_ID' => @key_id
+    }
+
+    if @config.git_annex_enabled?
+      env.merge!({ 'GIT_ANNEX_SHELL_LIMITED' => '1' })
+    end
+
+    Kernel::exec(env, *args, unsetenv_others: true)
   end
 
   def api
@@ -150,5 +176,10 @@ class GitlabShell
       system(*cmd, err: '/dev/null', out: '/dev/null')
       $logger.info "Enable git-annex for repository: #{path}."
     end
+  end
+
+  def gcryptsetup?(args)
+    non_dashed = args.reject { |a| a.start_with?('-') }
+    non_dashed[0, 2] == %w{git-annex-shell gcryptsetup}
   end
 end
