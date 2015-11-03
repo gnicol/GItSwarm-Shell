@@ -54,7 +54,7 @@ module PerforceSwarm
         fail RunError, output unless valid
       elsif command == 'info'
         # the first line should be boilerplate
-        fail RunError, output[/^fatal: (?<error>.*)$/] unless output.start_with?('Perforce - The Fast Software')
+        fail RunError, output unless output.start_with?('Perforce - The Fast Software')
       end
 
       # if no-one got upset, output was ok so return it
