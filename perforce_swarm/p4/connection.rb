@@ -105,9 +105,11 @@ module PerforceSwarm
           return run(*args)
         end
 
-        # we encountered an error that we're unable to handle, so log and re-throw
+        # we get exceptions for both warnings and errors. only bother to log errors.
+        error('command failed:', e) unless @p4.errors.empty?
+
+        # we encountered an error or warning that we're unable to handle, so re-throw
         self.input = ''
-        error('command failed:', e)
         raise e
       end
 
