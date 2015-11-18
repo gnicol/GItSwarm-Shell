@@ -14,13 +14,18 @@ describe PerforceSwarm::GitFusion do
                   git@host.com:@status@repo
                   git@host.com:@wait@talkhouse@12
                   git@5.4.3.2:@wait@talkhouse@12
+                  git@host.com:@list@foruser=bob
+                  git@host.com:@status@foruser=bob
+                  git@host.com:@status@repo@foruser=bob
+                  git@host.com:@wait@talkhouse@12@foruser=bob
+                  git@5.4.3.2:@wait@talkhouse@12
                   ssh://127.0.0.1
                   ssh://127.0.0.1:8080
                   ssh://host.com/
                   ssh://host.com:1234/
                   ssh://host.com/repo.git
                   ssh://host.com/@status
-                  ssh://host.com/@status@repo
+                  ssh://host.com/@status@repo@foruser=bob
                   ssh://host.com/@wait@talkhouse@12
                   ssh://10.0.0.2/@wait@talkhouse@12
                   ssh://localhost:443/repo
@@ -178,6 +183,45 @@ describe PerforceSwarm::GitFusion do
         expect(to_test.command).to be_false
         expect(to_test.extra).to be_false
         expect(to_test.repo).to eq(repo)
+      end
+    end
+  end
+
+  describe :for_user do
+    it 'clear_for_user removes the foruser if present' do
+      valid_urls.each do |url|
+        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test.clear_for_user
+        expect(to_test.for_user).to be_nil
+        expect(to_test.to_s).not_to match 'foruser'
+      end
+    end
+
+    it 'clear_path removes the foruser if present' do
+      valid_urls.each do |url|
+        to_test = PerforceSwarm::GitFusion::URL.new(url)
+        to_test.clear_path
+        expect(to_test.for_user).to be_nil
+        expect(to_test.to_s).not_to match 'foruser'
+      end
+    end
+
+    it 'deals with foruser in various locations, normalizing it' do
+      examples = [['git@localhost:@foruser=bob', 'git@localhost:@foruser=bob'],
+                  ['git@localhost:myrepo.git@foruser=bob', 'git@localhost:myrepo.git@foruser=bob'],
+                  ['git@localhost:@foruser=bob@wait@repoid', 'git@localhost:@wait@repoid@foruser=bob'],
+                  ['git@localhost:@foruser=bob@wait@repoid@12', 'git@localhost:@wait@repoid@12@foruser=bob'],
+                  ['git@localhost:@foruser=bob@list', 'git@localhost:@list@foruser=bob'],
+                  ['git@localhost:@foruser=bob@list', 'git@localhost:@list@foruser=bob'],
+                  ['git@localhost:@wait@repoid@foruser=bob', 'git@localhost:@wait@repoid@foruser=bob'],
+                  ['git@localhost:@wait@repoid@12@foruser=bob', 'git@localhost:@wait@repoid@12@foruser=bob'],
+                  ['git@localhost:@list@foruser=bob', 'git@localhost:@list@foruser=bob'],
+                  ['git@localhost:@list@foruser=bob', 'git@localhost:@list@foruser=bob']
+                 ]
+      examples.each do |input, output|
+        to_test = PerforceSwarm::GitFusion::URL.new(input)
+        expect(to_test.for_user).to eq('bob')
+        expect(to_test.to_s).to eq(output), "#{input} => got #{to_test} expected #{output}"
       end
     end
   end
