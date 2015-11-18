@@ -171,7 +171,7 @@ module PerforceSwarm
       push_output.gsub!(/Perforce: +\d+% +\( *\d+\/\d+\) (.*?)\n([^\n]+\1\n)+/m, '\2') if push_output
 
       message = "Push: #{repo_path}\n"
-      message += "#{refs * "\n"}\n" if $! # skips refs if an exception occured, they were already logged
+      message += "#{refs * "\n"}\n"
       message += "Durations #{durations}\n#{push_output}#{wait_outputs}"
       $logger.info message
     end
