@@ -70,7 +70,7 @@ module PerforceSwarm
     class URL
       attr_accessor :url, :delimiter
       attr_reader :scheme, :password
-      attr_writer :extra, :strip_password, :user
+      attr_writer :extra, :strip_password, :user, :for_user
 
       VALID_SCHEMES  = %w(http https ssh)
       VALID_COMMANDS = %w(help info list status wait)
@@ -88,11 +88,12 @@ module PerforceSwarm
       #  * missing a username in scp-style urls (e.g. user@host)
       #  * the URL is otherwise invalid, as determined by ruby's URI.parse method
       def parse(url)
-        # reset the stored delimiter, command, repo and extra before parsing, in case we're being called multiple times
+        # reset the stored delimiter, command, repo, etc before parsing, in case we're being called multiple times
         self.delimiter = nil
         self.command   = nil
         self.repo      = nil
         self.extra     = nil
+        self.for_user  = nil
 
         fail 'No URL provided.' unless url
 
@@ -132,8 +133,13 @@ module PerforceSwarm
         path = parsed.path.gsub(%r{^/|/$}, '')
         return if path.empty?
 
+        # the 'foruser' flag can appear anywhere. if present capture and remove it
+        # we do this _before_ the path starts_with?@ handling as we may end up removing all @'s
+        self.for_user = $~[1] if path.gsub!(/@foruser=([^@]+)/, '')
+
         # parse out pieces of @-syntax, if present
         if path.start_with?('@')
+          # now that we know 'foruser' won't be in the party a simple split suffices for the other bits
           segments     = path[1..-1].split('@', 3)
           self.command = segments[0]
           self.repo    = segments[1]
@@ -199,6 +205,14 @@ module PerforceSwarm
         @extra
       end
 
+      def for_user(*args)
+        if args.length > 0
+          self.for_user = args[0]
+          return self
+        end
+        @for_user
+      end
+
       def strip_password(*args)
         if args.length > 0
           self.strip_password = args[0]
@@ -218,6 +232,7 @@ module PerforceSwarm
       def clear_path
         self.repo = nil
         clear_command
+        clear_for_user
         self
       end
 
@@ -227,16 +242,21 @@ module PerforceSwarm
         self
       end
 
+      def clear_for_user
+        self.for_user = nil
+      end
+
       def to_s
         fail 'Extra requires both command and repo to be specified.' if extra && (!command || !repo)
 
         # build and put @ and params in the right spots
         str  = build_url
-        str += delimiter        if pathed?
-        str += '@' + command    if command
-        str += '@'              if command && repo
-        str += repo             if repo
-        str += '@' + extra.to_s if extra
+        str += delimiter              if pathed?
+        str += '@' + command          if command
+        str += '@'                    if command && repo
+        str += repo                   if repo
+        str += '@' + extra.to_s       if extra
+        str += '@foruser=' + for_user if for_user
         str
       end
 
