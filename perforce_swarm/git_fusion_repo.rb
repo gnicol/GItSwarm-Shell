@@ -5,8 +5,8 @@ require_relative 'utils'
 module PerforceSwarm
   class GitFusionRepo
     # returns a hash mapping repo name to description for all repos for the given Git Fusion config entry
-    def self.list(id = nil)
-      parse_repos(PerforceSwarm::GitFusion.run(id, 'list'))
+    def self.list(id = nil, user = nil)
+      parse_repos(PerforceSwarm::GitFusion.run(id, 'list', for_user: user))
     end
 
     # largely a separate method for testability
