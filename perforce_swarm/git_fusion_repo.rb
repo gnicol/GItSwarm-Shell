@@ -19,7 +19,7 @@ module PerforceSwarm
       # Talkhouse pull utf8       A description for this repo
       git_output.lines.each do |repo|
         if /^(?<name>[^\s]+)\s+(push|pull)?\s+([^\s]+)(\s+(?<description>.+?))?$/ =~ repo
-          repos[name] = description.strip
+          repos[name] = description ? description.strip : ''
         end
       end
       repos
