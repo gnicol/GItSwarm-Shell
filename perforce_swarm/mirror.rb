@@ -1,5 +1,6 @@
 require 'socket'
 require 'tmpdir'
+require_relative 'init'
 require_relative 'git_fusion'
 require_relative 'repo'
 require_relative 'utils'
@@ -94,6 +95,9 @@ module PerforceSwarm
         end
       end
 
+      # @todo: ensure the active user's id is included as the 'foruser'
+      repo.mirror_url = repo.mirror_url_object.clear_for_user
+
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
       push_output, status = Utils.popen(['git', *git_config_params, 'push', 'mirror', '--', *refs], repo_path, true)
@@ -115,17 +119,12 @@ module PerforceSwarm
       Dir.mktmpdir do |temp|
         # we wait until the push is complete. out of concern the http connection to the mirror may
         # time out we keep retrying the wait until we see success or that the operation is done
-        wait = repo.mirror_url.gsub(%r{/([^/]*/?$)}, '/@wait@\1@' + push_id)
-        wait = repo.mirror_url.gsub(/:([^:]*\/?$)/, ':@wait@\1@' + push_id) if repo.mirror_url == wait
-        if repo.mirror_url == wait
-          puts message = "Unable to add @wait@ to mirror url: #{repo.mirror_url}"
-          fail Exception, message
-        end
+        wait_url = repo.mirror_url_object.clear_for_user.command('wait').extra(push_id)
 
         loop do
           # do the wait and echo any output not related to the start/end of the clone attempt
           silenced        = false
-          output, _status = Utils.popen(['git', *git_config_params, 'clone', '--', wait], temp) do |line|
+          output, _status = Utils.popen(['git', *git_config_params, 'clone', '--', wait_url], temp) do |line|
             silenced ||= line =~ /^fatal: /
             print line unless line =~ /^Cloning into/ || silenced
           end
@@ -213,6 +212,9 @@ module PerforceSwarm
                 fetch_handle.flock(File::LOCK_SH)
                 return !last_fetch_error(repo_path)
               end
+
+              # Ensure the mirror remote doesn't have a 'foruser' set on it
+              repo.mirror_url = repo.mirror_url_object.clear_for_user
 
               # Now that we are locked, grab our current refs
               old_refs = show_ref(repo_path)

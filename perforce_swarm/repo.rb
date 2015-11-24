@@ -1,5 +1,7 @@
 require_relative '../lib/gitlab_init'
 require_relative 'utils'
+require_relative 'git_fusion'
+require_relative 'git_fusion_repo'
 
 module PerforceSwarm
   class Repo
@@ -19,7 +21,7 @@ module PerforceSwarm
     def mirror_url=(url)
       # construct the Git Fusion URL based on the mirror URL given
       # run the git command to add the remote
-      resolved_url = GitFusionRepo.resolve_url(url)
+      resolved_url = GitFusionRepo.resolve_url(url.to_s)
       Utils.popen(%w(git remote remove mirror), @path)
       output, status = Utils.popen(['git', 'remote', 'add', 'mirror', resolved_url], @path)
       @mirror_url    = nil
@@ -37,6 +39,10 @@ module PerforceSwarm
       @mirror_url.strip!
       @mirror_url = false unless status.zero? && !@mirror_url.empty?
       @mirror_url
+    end
+
+    def mirror_url_object
+      GitFusion::URL.new(@mirror_url)
     end
   end
 end
