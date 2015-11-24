@@ -588,4 +588,83 @@ eos
       expect(config.auto_create_configured?).to be_true
     end
   end
+
+  describe :enforce_permissions do
+    let(:config) { PerforceSwarm::GitlabConfig.new }
+
+    context 'without any settings' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+  yoda:
+    url: "http://foo@bar"
+eos
+    )
+        )
+      end
+      it 'Entries say permissions are not enforced' do
+        config.git_fusion.entries.each do |_id, entry|
+          expect(entry.enforce_permissions?).to eq(false), entry.inspect
+        end
+      end
+    end
+
+    context 'without global settings' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+    enforce_permissions: false
+  yoda:
+    url: "http://foo@bar"
+eos
+          )
+        )
+      end
+      it 'Entries say permissions are not enforced' do
+        config.git_fusion.entries.each do |_id, entry|
+          expect(entry.enforce_permissions?).to eq(false), entry.inspect
+        end
+      end
+    end
+
+    context 'with global setting' do
+      before do
+        config.instance_variable_set(:@config, YAML.load(<<eos
+git_fusion:
+  enabled: true
+  some_value: some string
+  global:
+    enforce_permissions: true
+  default:
+    url: "foo@bar"
+  foo:
+    url: "bar@baz"
+  yoda:
+    url: "http://foo@bar"
+    enforce_permissions: false
+eos
+          )
+        )
+      end
+      it 'non-overridden entries follow the global setting' do
+        expect(config.git_fusion.entry('default').enforce_permissions?).to eq(true)
+        expect(config.git_fusion.entry('foo').enforce_permissions?).to eq(true)
+      end
+      it 'overridden entries vary from the global setting' do
+        expect(config.git_fusion.entry('yoda').enforce_permissions?).to eq(false)
+      end
+    end
+  end
 end
