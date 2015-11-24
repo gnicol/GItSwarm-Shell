@@ -244,6 +244,7 @@ module PerforceSwarm
 
       def clear_for_user
         self.for_user = nil
+        self
       end
 
       def to_s
