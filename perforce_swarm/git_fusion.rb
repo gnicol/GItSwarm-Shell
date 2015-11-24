@@ -11,13 +11,15 @@ module PerforceSwarm
     class RunAccessError < RunError
     end
 
-    def self.run(id, command, repo: nil, extra: nil, stream_output: nil, &block)
+    def self.run(id, command, repo: nil, extra: nil, stream_output: nil, for_user: nil, &block)
       # we always log either a debug or error entry; calculate the pre-amble early
-      log_context = "GitFusion.run(#{[id, command, repo, extra, stream_output, block].map(&:inspect).join(', ')}) "
+      log_commands = [id, command, repo, extra, stream_output, for_user, block].map(&:inspect).join(', ')
+      log_context  = "GitFusion.run(#{log_commands}) "
 
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
-      url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
+      url    = PerforceSwarm::GitFusion::URL.new(config['url'])
+               .for_user(for_user).command(command).repo(repo).extra(extra)
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
