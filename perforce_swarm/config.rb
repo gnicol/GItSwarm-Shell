@@ -132,10 +132,17 @@ module PerforceSwarm
         global_config['password']  ||= Config::DEFAULT_PASSWORD
         global_config['perforce']    = {} unless global_config['perforce'].is_a?(Hash)
         global_config['auto_create'] = {} unless global_config['auto_create'].is_a?(Hash)
+        global_config['enforce_permissions'] ||= false
         global_config.delete('url')
         global_config.delete('label')
         global_config['perforce'].delete('port')
         global_config
+      end
+
+      # if true perforce permissions should be enforced based on the active user's rights
+      # if false, default, only the 'gitswarm' system users p4 permissions matter.
+      def enforce_permissions?
+        @entry.key?('enforce_permissions') ? @entry['enforce_permissions'] : global['enforce_permissions']
       end
 
       # returns the password (or empty string if not found) with the following priority:
