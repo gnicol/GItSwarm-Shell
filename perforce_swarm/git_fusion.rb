@@ -19,7 +19,8 @@ module PerforceSwarm
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
       url    = PerforceSwarm::GitFusion::URL.new(config['url'])
-               .for_user(for_user).command(command).repo(repo).extra(extra)
+               .for_user(config.enforce_permissions? ? for_user : nil).command(command).repo(repo).extra(extra)
+
       Dir.mktmpdir do |temp|
         silenced = false
         output   = ''
