@@ -18,10 +18,8 @@ module PerforceSwarm
 
       fail 'run requires a command' unless command
       config = PerforceSwarm::GitlabConfig.new.git_fusion.entry(id)
-      url    = PerforceSwarm::GitFusion::URL.new(config['url']).command(command).repo(repo).extra(extra)
-
-      # Only append for_user onto the url when enforcing permissions
-      url.for_user(for_user) if for_user && config.enforce_permissions?
+      url    = PerforceSwarm::GitFusion::URL.new(config['url'])
+               .for_user(config.enforce_permissions? ? for_user : nil).command(command).repo(repo).extra(extra)
 
       Dir.mktmpdir do |temp|
         silenced = false
