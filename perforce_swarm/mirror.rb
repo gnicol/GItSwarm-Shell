@@ -96,7 +96,14 @@ module PerforceSwarm
       end
 
       # @todo: ensure the active user's id is included as the 'foruser'
-      repo.mirror_url = repo.mirror_url_object.clear_for_user
+      if ENV['GL_ID'] && config.enforce_permissions?
+        user = GitlabShell.new(ENV['GL_ID'], '').send(:user)
+        repo.mirror_url = repo.mirror_url_object.for_user(user['username'])
+        $logger.info "Including foruser in mirror_url #{repo.mirror_url}"
+      else
+        repo.mirror_url = repo.mirror_url_object.clear_for_user
+        $logger.info "Skipping foruser #{repo.mirror_url} GL_ID #{ENV['GL_ID']} Enforce #{config.enforce_permissions?}"
+      end
 
       # push the ref updates to the remote mirror and fail out if they are unhappy
       durations.start(:push)
