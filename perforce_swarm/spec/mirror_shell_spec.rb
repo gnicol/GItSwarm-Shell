@@ -7,6 +7,9 @@ describe PerforceSwarm::MirrorShell do
     FileUtils.mkdir_p(tmp_repos_path)
     GitlabConfig.any_instance.stub(repos_path: tmp_repos_path, audit_usernames: false)
     $logger = double('logger').as_null_object
+    
+    # Clear off any pre-existing args
+    ARGV.clear
   end
 
   after do
