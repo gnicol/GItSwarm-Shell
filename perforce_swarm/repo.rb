@@ -23,18 +23,15 @@ module PerforceSwarm
     def mirror_url=(url)
       # construct the Git Fusion URL based on the mirror URL given
       # run the git command to add the remote
-      resolved_url = GitFusionRepo.resolve_url(url.to_s) if url
+      resolved_url = GitFusionRepo.resolve_url(url.to_s)
 
       # remove the mirror remote, and exit if we were given nil
+      @mirror_url = nil
       Utils.popen(%w(git remote remove mirror), @path)
-      unless url
-        @mirror_url = nil
-        return url
-      end
+      return url unless url && !url.empty?
 
       # add/update the mirror remote
       output, status = Utils.popen(['git', 'remote', 'add', 'mirror', resolved_url], @path)
-      @mirror_url    = nil
       unless status.zero? && mirror_url == resolved_url
         fail "Failed to add mirror remote #{url} to #{@path} its still #{mirror_url}\n#{output}"
       end

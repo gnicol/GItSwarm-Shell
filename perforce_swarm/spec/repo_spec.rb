@@ -86,5 +86,19 @@ describe PerforceSwarm::Repo do
       subject.new(gl_project.full_path).send(:mirror_url).should be == url2
       subject.new(gl_project.full_path).send(:mirrored?).should be_true
     end
+
+    it 'removes the mirror remote if given nil, false or empty string' do
+      (gl_project = gl_projects_create).exec
+      default_url = 'git@example.com:foo'
+      [nil, false, ''].each do |value|
+        # set repo as mirrored, and ensure that it is
+        subject.new(gl_project.full_path).send(:mirror_url=, default_url).should be == default_url
+        subject.new(gl_project.full_path).send(:mirrored?).should be_true
+
+        # disable mirroring and ensure it gets disabled
+        subject.new(gl_project.full_path).send(:mirror_url=, value).should be == value
+        subject.new(gl_project.full_path).send(:mirrored?).should be_false
+      end
+    end
   end
 end
