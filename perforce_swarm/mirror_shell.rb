@@ -1,8 +1,11 @@
 require 'optparse'
+require_relative '../lib/names_helper'
 
 module PerforceSwarm
   class MirrorShell
-    attr_accessor :config
+    include NamesHelper
+
+    attr_accessor :config, :command, :project_name, :full_path
 
     def initialize
       $logger.debug "gitswarm-mirror invoked with #{ARGV.length} args: '#{ARGV.join("', '")}'"
@@ -11,8 +14,8 @@ module PerforceSwarm
       # we leave any other args alone and the individual handler can parse them as options
       @config       = GitlabConfig.new
       @command      = ARGV.shift
-      @project_name = ARGV.pop
-      @full_path    = File.join(config.repos_path, @project_name) unless @project_name.nil?
+      @project_name = extract_repo_name(ARGV.pop, config.repos_path.to_s)
+      @full_path    = File.join(config.repos_path, "#{@project_name}.git") unless @project_name.nil?
     end
 
     def exec
