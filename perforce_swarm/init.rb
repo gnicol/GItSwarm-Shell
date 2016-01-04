@@ -53,7 +53,7 @@ module PerforceSwarm
   # For ssh, do an early fetch from mirror to
   # make sure all the refs are up-to-date
   module GitlabShellExtension
-    def process_cmd
+    def process_cmd(args)
       repo_full_path = File.join(repos_path, repo_name)
 
       # push errors are fatal but pull errors are ignorable

@@ -16,7 +16,7 @@ describe GitlabShell do
     PerforceSwarm::Mirror.tap do |mirror|
       mirror.stub(fetch: true)
     end
-    GitlabShell.new(key_id, ssh_cmd).tap do |shell|
+    GitlabShell.new(key_id).tap do |shell|
       shell.stub(exec_cmd: :exec_called)
       shell.stub(api: api)
     end
@@ -40,7 +40,7 @@ describe GitlabShell do
   describe :exec do
     context 'git-upload-pack' do
       let(:ssh_cmd) { 'git-upload-pack gitlab-ci.git' }
-      after { subject.exec }
+      after { subject.exec(ssh_cmd) }
 
       it 'should execute the command', override: true do
         subject.should_receive(:exec_cmd).with('git-upload-pack', File.join(tmp_repos_path, 'gitlab-ci.git'))
@@ -61,7 +61,7 @@ describe GitlabShell do
 
     context 'git-receive-pack' do
       let(:ssh_cmd) { 'git-receive-pack gitlab-ci.git' }
-      after { subject.exec }
+      after { subject.exec(ssh_cmd) }
 
       it 'should execute the command', override: true do
         subject.should_receive(:exec_cmd).with('git-receive-pack', File.join(tmp_repos_path, 'gitlab-ci.git'))
@@ -82,7 +82,7 @@ describe GitlabShell do
         GitlabConfig.any_instance.stub(git_annex_enabled?: true)
       end
 
-      after { subject.exec }
+      after { subject.exec(ssh_cmd) }
 
       it 'should execute the command' do
         subject.should_receive(:exec_cmd)
@@ -93,7 +93,7 @@ describe GitlabShell do
 
   describe :validate_access, override: true do
     let(:ssh_cmd) { 'git-upload-pack gitlab-ci.git' }
-    after { subject.exec }
+    after { subject.exec(ssh_cmd) }
 
     it 'should call api.check_access' do
       api.should_receive(:check_access)
