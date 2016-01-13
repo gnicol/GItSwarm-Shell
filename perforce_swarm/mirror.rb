@@ -97,7 +97,7 @@ module PerforceSwarm
 
       # @todo: ensure the active user's id is included as the 'foruser'
       if ENV['GL_ID'] && config.enforce_permissions?
-        user = GitlabShell.new(ENV['GL_ID'], '').send(:user)
+        user = GitlabShell.new(ENV['GL_ID']).send(:user)
         repo.mirror_url = repo.mirror_url_object.for_user(user['username'])
         $logger.info "Including foruser in mirror_url #{repo.mirror_url}"
       else

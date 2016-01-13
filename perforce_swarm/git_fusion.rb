@@ -38,7 +38,7 @@ module PerforceSwarm
       end
     rescue => e
       $logger.error "#{log_context}\n#{e.inspect}\n#{e.backtrace.join("\n") unless e.is_a?(RunError)}"
-      raise e
+      raise PerforceSwarm::GitFusion::RunError, e.message
     end
 
     def self.validate_git_output(command, output)
