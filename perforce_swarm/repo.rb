@@ -28,7 +28,7 @@ module PerforceSwarm
       # remove the mirror remote, and exit if we were given nil
       @mirror_url = nil
       Utils.popen(%w(git remote remove mirror), @path)
-      return url unless url && !url.empty?
+      return url unless url
 
       # add/update the mirror remote
       output, status = Utils.popen(['git', 'remote', 'add', 'mirror', resolved_url], @path)
