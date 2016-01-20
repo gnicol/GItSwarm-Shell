@@ -20,6 +20,9 @@ module PerforceSwarm
     # socket due to the requested repo not being mirrored
     NOT_MIRRORED = '__NOT_MIRRORED__'
 
+    # filename of lock used for re-enabling mirroring
+    REENABLE_LOCK_FILE = 'mirror_reenable.lock'
+
     # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
@@ -291,6 +294,34 @@ module PerforceSwarm
 
       error = File.read(File.join(repo_path, 'mirror_fetch.error'))
       "Fetch from mirror: #{repo.mirror_url} failed.\nPlease notify your Administrator.\n#{error}"
+    rescue SystemCallError
+      return false
+    end
+
+    def self.with_reenable_lock(repo_path)
+      File.open(File.join(repo_path, REENABLE_LOCK_FILE), 'w+', 0644) do |handle|
+        begin
+          return unless handle.flock(File::LOCK_EX | File::LOCK_NB)
+          yield(handle) if block_given?
+        ensure
+          handle.flock(File::LOCK_UN)
+          handle.close
+        end
+      end
+    end
+
+    # boolean as to whether mirroring on the given repo is currently in progress
+    def self.reenabling?(repo_path)
+      # mirrored, so we're not re-enabling
+      return false if Repo.new(repo_path).mirrored?
+
+      # check whether someone already has a lock on the re-enable file
+      self.locked?(repo_path, REENABLE_LOCK_FILE)
+    end
+
+    # returns errors encountered during re-enable
+    def self.reenable_error(repo_path)
+      File.read(File.join(repo_path, REENABLE_LOCK_FILE))
     rescue SystemCallError
       return false
     end

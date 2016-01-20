@@ -20,8 +20,9 @@ module PerforceSwarm
 
     def exec
       case @command
-      when 'fetch'  then fetch
-      when 'push'   then push
+      when 'fetch'              then fetch
+      when 'push'               then push
+      when 'reenable_mirroring' then reenable_mirroring
       else
         $logger.warn "Attempt to execute invalid gitswarm-mirror command #{@command.inspect}."
         puts 'not allowed'
@@ -52,6 +53,55 @@ module PerforceSwarm
       puts ex.message
       $logger.error("gitswarm-mirror push failed. #{ex.class} #{ex.message}")
       false
+    end
+
+    def reenable_mirroring
+      mirror_url = ARGV.pop
+      fail 'No project name was specified' unless @project_name && @full_path
+      fail 'No mirror URL provided.' unless mirror_url && !mirror_url.empty?
+
+      # check if we're already mirrored
+      repo = Repo.new(@full_path)
+      return false if repo.mirrored?
+
+      # record whether our re-enable was successful - the following block
+      # will not wait on the file lock, so if a re-enable is already in progress,
+      # it will simply finish
+      reenabled = false
+      Mirror.with_reenable_lock(@full_path) do |handle|
+        begin
+          # remove any stale errors
+          handle.truncate(0)
+
+          # set the mirror remote
+          repo.mirror_url = mirror_url
+
+          # fetch, eating any non-connectivity errors, re-throwing on connectivity problems
+          begin
+            Mirror.fetch!(@full_path)
+          rescue => e
+            $logger.error(e.message)
+            raise e.message if e.message.include?('Could not read from remote repository.')
+          end
+
+          # push to the remote mirror
+          refs = Mirror.show_ref(@full_path)
+          refs = refs.split("\n").map { |ref| ref.sub(' ', ':') }
+          Mirror.push(refs, @full_path, require_block: false)
+
+          # re-enable was a success
+          reenabled = true
+        rescue => e
+          # we've encountered an error bad enough that we shouldn't re-enable
+          handle.write(e.message)
+          reenabled = false
+          raise e
+        ensure
+          # remove the mirror remote if the re-enable failed
+          repo.mirror_url = nil unless reenabled
+        end
+      end
+      reenabled
     end
 
     def fetch
