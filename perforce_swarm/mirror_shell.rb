@@ -67,7 +67,7 @@ module PerforceSwarm
       # record whether our re-enable was successful - the following block
       # will not wait on the file lock, so if a re-enable is already in progress,
       # it will simply finish
-      reenabled = false
+      reenabled = true
       Mirror.with_reenable_lock(@full_path) do |handle|
         begin
           # check if we're already mirrored
