@@ -67,12 +67,15 @@ module PerforceSwarm
       # record whether our re-enable was successful - the following block
       # will not wait on the file lock, so if a re-enable is already in progress,
       # it will simply finish
-      reenabled = true
+      reenabled = false
       Mirror.with_reenable_lock(@full_path) do |handle|
         begin
-          # check if we're already mirrored
           repo = Repo.new(@full_path)
-          return false if repo.mirrored?
+          if repo.mirrored?
+            # we're not technically re-enabled, but we're enabled
+            reenabled = true
+            return false
+          end
 
           # remove any stale errors
           handle.truncate(0)
@@ -84,8 +87,11 @@ module PerforceSwarm
           begin
             Mirror.fetch!(@full_path)
           rescue => e
-            $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
-            raise e.message if e.message.include?('Could not read from remote repository.')
+            if e.message.include?('Could not read from remote repository.')
+              raise e
+            else
+              $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
+            end
           end
 
           # push to the remote mirror and mark re-enable as success
@@ -95,7 +101,6 @@ module PerforceSwarm
           # we've encountered an error bad enough that we shouldn't re-enable
           $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
           handle.write(e.message)
-          reenabled = false
           raise e
         ensure
           # remove the mirror remote if the re-enable failed
