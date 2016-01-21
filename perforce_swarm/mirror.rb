@@ -322,7 +322,9 @@ module PerforceSwarm
     # returns errors encountered during re-enable
     def self.reenable_error(repo_path)
       return false if reenabling?(repo_path)
-      File.read(File.join(repo_path, REENABLE_LOCK_FILE))
+      error = File.read(File.join(repo_path, REENABLE_LOCK_FILE))
+      return false if error && error.empty?
+      error
     rescue SystemCallError
       return false
     end

@@ -71,40 +71,38 @@ module PerforceSwarm
       Mirror.with_reenable_lock(@full_path) do |handle|
         begin
           repo = Repo.new(@full_path)
-          if repo.mirrored?
-            # we're not technically re-enabled, but we're enabled
-            reenabled = true
-            return false
-          end
+          return false if repo.mirrored?
 
-          # remove any stale errors
-          handle.truncate(0)
-
-          # set the mirror remote
-          repo.mirror_url = mirror_url
-
-          # fetch, eating any non-connectivity errors, re-throwing on connectivity problems
           begin
-            Mirror.fetch!(@full_path)
-          rescue => e
-            if e.message.include?('Could not read from remote repository.')
-              raise e
-            else
-              $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
-            end
-          end
+            # remove any stale errors
+            handle.truncate(0)
 
-          # push to the remote mirror and mark re-enable as success
-          push_all_refs
-          reenabled = true
-        rescue => e
-          # we've encountered an error bad enough that we shouldn't re-enable
-          $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
-          handle.write(e.message)
-          raise e
-        ensure
-          # remove the mirror remote if the re-enable failed
-          repo.mirror_url = nil unless reenabled
+            # set the mirror remote
+            repo.mirror_url = mirror_url
+
+            # fetch, eating any non-connectivity errors, re-throwing on connectivity problems
+            begin
+              Mirror.fetch!(@full_path)
+            rescue => e
+              if e.message.include?('Could not read from remote repository.')
+                raise e
+              else
+                $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
+              end
+            end
+
+            # push to the remote mirror and mark re-enable as success
+            push_all_refs
+            reenabled = true
+          rescue => e
+            # we've encountered an error bad enough that we shouldn't re-enable
+            $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
+            handle.write(e.message)
+            raise e
+          ensure
+            # remove the mirror remote if the re-enable failed
+            repo.mirror_url = nil unless reenabled
+          end
         end
       end
       reenabled
