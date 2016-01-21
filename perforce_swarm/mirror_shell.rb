@@ -36,11 +36,7 @@ module PerforceSwarm
 
     protected
 
-    def push
-      fail 'No project name was specified' unless @project_name && @full_path
-      repo = Repo.new(@full_path)
-      return true unless repo.mirrored?
-
+    def push_all_refs
       # calculate all existing heads/tags. we start by running 'git show-ref --heads --tags'
       # we then split it into an array of entries. we wrap by making it colon not space delimited for sha:ref
       refs = Mirror.show_ref(@full_path)
@@ -48,6 +44,14 @@ module PerforceSwarm
 
       # push all of the detected refs to the remote mirror
       Mirror.push(refs, @full_path, require_block: false)
+    end
+
+    def push
+      fail 'No project name was specified' unless @project_name && @full_path
+      repo = Repo.new(@full_path)
+      return true unless repo.mirrored?
+
+      push_all_refs
       true
     rescue => ex
       puts ex.message
@@ -60,16 +64,16 @@ module PerforceSwarm
       fail 'No project name was specified' unless @project_name && @full_path
       fail 'No mirror URL provided.' unless mirror_url && !mirror_url.empty?
 
-      # check if we're already mirrored
-      repo = Repo.new(@full_path)
-      return false if repo.mirrored?
-
       # record whether our re-enable was successful - the following block
       # will not wait on the file lock, so if a re-enable is already in progress,
       # it will simply finish
       reenabled = false
       Mirror.with_reenable_lock(@full_path) do |handle|
         begin
+          # check if we're already mirrored
+          repo = Repo.new(@full_path)
+          return false if repo.mirrored?
+
           # remove any stale errors
           handle.truncate(0)
 
@@ -80,19 +84,16 @@ module PerforceSwarm
           begin
             Mirror.fetch!(@full_path)
           rescue => e
-            $logger.error(e.message)
+            $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
             raise e.message if e.message.include?('Could not read from remote repository.')
           end
 
-          # push to the remote mirror
-          refs = Mirror.show_ref(@full_path)
-          refs = refs.split("\n").map { |ref| ref.sub(' ', ':') }
-          Mirror.push(refs, @full_path, require_block: false)
-
-          # re-enable was a success
+          # push to the remote mirror and mark re-enable as success
+          push_all_refs
           reenabled = true
         rescue => e
           # we've encountered an error bad enough that we shouldn't re-enable
+          $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
           handle.write(e.message)
           reenabled = false
           raise e
