@@ -23,6 +23,9 @@ module PerforceSwarm
     # filename of lock used for re-enabling mirroring
     REENABLE_LOCK_FILE = 'mirror_reenable.lock'
 
+    # filename for errors encountered during re-enabling mirroring
+    REENABLE_ERROR_FILE = 'mirror_reenable.error'
+
     # if we have a 'mirror' remote, we push to it first and reject everything if its unhappy
     # note this will echo output from the mirror to stdout so the user can see it
     # @todo; from the docs tags may need a leading + to go through this way; test and confirm
@@ -302,7 +305,8 @@ module PerforceSwarm
       File.open(File.join(repo_path, REENABLE_LOCK_FILE), 'w+', 0644) do |handle|
         begin
           return unless handle.flock(File::LOCK_EX | File::LOCK_NB)
-          yield(handle) if block_given?
+          error_file = File.join(repo_path, REENABLE_ERROR_FILE)
+          yield(error_file) if block_given?
         ensure
           handle.flock(File::LOCK_UN)
           handle.close
@@ -322,7 +326,7 @@ module PerforceSwarm
     # returns errors encountered during re-enable
     def self.reenable_error(repo_path)
       return false if reenabling?(repo_path)
-      error = File.read(File.join(repo_path, REENABLE_LOCK_FILE))
+      error = File.read(File.join(repo_path, REENABLE_ERROR_FILE))
       return false if error && error.empty?
       error
     rescue SystemCallError

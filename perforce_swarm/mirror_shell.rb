@@ -68,14 +68,14 @@ module PerforceSwarm
       # will not wait on the file lock, so if a re-enable is already in progress,
       # it will simply finish
       reenabled = false
-      Mirror.with_reenable_lock(@full_path) do |handle|
+      Mirror.with_reenable_lock(@full_path) do |error_file|
         begin
           repo = Repo.new(@full_path)
           return false if repo.mirrored?
 
           begin
-            # remove any stale errors
-            handle.truncate(0)
+            # remove any stale errors and prime with 'Unknown error.'
+            File.write(error_file, 'Unknown error.')
 
             # set the mirror remote
             repo.mirror_url = mirror_url
@@ -91,13 +91,16 @@ module PerforceSwarm
               end
             end
 
-            # push to the remote mirror and mark re-enable as success
+            # push to the remote mirror, mark re-enable as success, clear any
+            # re-enable errors, and push a redis event to re-enable mirroring in GitSwarm
             push_all_refs
             reenabled = true
+            File.unlink(error_file)
+            update_redis(true, 'PerforceSwarm::PostReenableWorker')
           rescue => e
             # we've encountered an error bad enough that we shouldn't re-enable
             $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
-            handle.write(e.message)
+            File.write(error_file, e.message)
             raise e
           ensure
             # remove the mirror remote if the re-enable failed
@@ -153,9 +156,9 @@ module PerforceSwarm
       false
     end
 
-    def update_redis(success)
+    def update_redis(success, message_class = 'PerforceSwarm::PostFetchWorker')
       queue = "#{config.redis_namespace}:queue:default"
-      msg   = JSON.dump('class' => 'PerforceSwarm::PostFetchWorker', 'args' => [@full_path, success])
+      msg   = JSON.dump('class' => message_class, 'args' => [@full_path, success])
       if system(*config.redis_command, 'rpush', queue, msg, err: '/dev/null', out: '/dev/null')
         return true
       else
