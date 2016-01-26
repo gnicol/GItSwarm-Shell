@@ -316,11 +316,8 @@ module PerforceSwarm
 
     # boolean as to whether mirroring on the given repo is currently in progress
     def self.reenabling?(repo_path)
-      # mirrored, so we're not re-enabling
-      return false if Repo.new(repo_path).mirrored?
-
       # check whether someone already has a lock on the re-enable file
-      self.locked?(repo_path, REENABLE_LOCK_FILE)
+      self.locked?(repo_path, File.join(repo_path, REENABLE_LOCK_FILE))
     end
 
     # returns errors encountered during re-enable
