@@ -407,7 +407,7 @@ module PerforceSwarm
         begin
           # we just invert the flock result so we're locked? false if we get a lock (as no-one else had one)
           # and we're locked? true if we can't get a lock (as someone else has one)
-          return !handle.flock(File::LOCK_EX | File::LOCK_NB)
+          return !handle.flock(File::LOCK_SH | File::LOCK_NB)
         ensure
           handle.flock(File::LOCK_UN)
           handle.close
