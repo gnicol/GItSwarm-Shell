@@ -143,9 +143,9 @@ module PerforceSwarm
       begin
         skip_if_pushing = !wait_if_busy && !redis_on_finish
         Mirror.fetch!(@full_path, skip_if_pushing)
-        update_redis(true)  if redis_on_finish
+        update_redis(true, 'PerforceSwarm::PostFetchWorker')  if redis_on_finish
       rescue => ex
-        update_redis(false) if redis_on_finish
+        update_redis(false, 'PerforceSwarm::PostFetchWorker') if redis_on_finish
         raise ex
       end
 
@@ -156,7 +156,7 @@ module PerforceSwarm
       false
     end
 
-    def update_redis(success, message_class = 'PerforceSwarm::PostFetchWorker')
+    def update_redis(success, message_class)
       queue = "#{config.redis_namespace}:queue:default"
       msg   = JSON.dump('class' => message_class, 'args' => [@full_path, success])
       if system(*config.redis_command, 'rpush', queue, msg, err: '/dev/null', out: '/dev/null')
