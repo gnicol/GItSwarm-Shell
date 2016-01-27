@@ -20,8 +20,9 @@ module PerforceSwarm
 
     def exec
       case @command
-      when 'fetch'  then fetch
-      when 'push'   then push
+      when 'fetch'              then fetch
+      when 'push'               then push
+      when 'reenable_mirroring' then reenable_mirroring
       else
         $logger.warn "Attempt to execute invalid gitswarm-mirror command #{@command.inspect}."
         puts 'not allowed'
@@ -35,11 +36,7 @@ module PerforceSwarm
 
     protected
 
-    def push
-      fail 'No project name was specified' unless @project_name && @full_path
-      repo = Repo.new(@full_path)
-      return true unless repo.mirrored?
-
+    def push_all_refs
       # calculate all existing heads/tags. we start by running 'git show-ref --heads --tags'
       # we then split it into an array of entries. we wrap by making it colon not space delimited for sha:ref
       refs = Mirror.show_ref(@full_path)
@@ -47,11 +44,71 @@ module PerforceSwarm
 
       # push all of the detected refs to the remote mirror
       Mirror.push(refs, @full_path, require_block: false)
+    end
+
+    def push
+      fail 'No project name was specified' unless @project_name && @full_path
+      repo = Repo.new(@full_path)
+      return true unless repo.mirrored?
+
+      push_all_refs
       true
     rescue => ex
       puts ex.message
       $logger.error("gitswarm-mirror push failed. #{ex.class} #{ex.message}")
       false
+    end
+
+    def reenable_mirroring
+      mirror_url = ARGV.pop
+      fail 'No project name was specified' unless @project_name && @full_path
+      fail 'No mirror URL provided.' unless mirror_url && !mirror_url.empty?
+
+      # record whether our re-enable was successful - the following block
+      # will not wait on the file lock, so if a re-enable is already in progress,
+      # it will simply finish
+      reenabled = false
+      Mirror.with_reenable_lock(@full_path) do |error_file|
+        begin
+          repo = Repo.new(@full_path)
+          return false if repo.mirrored?
+
+          begin
+            # remove any stale errors and prime with 'Unknown error.'
+            File.write(error_file, 'Unknown error.')
+
+            # set the mirror remote
+            repo.mirror_url = mirror_url
+
+            # fetch, eating any non-connectivity errors, re-throwing on connectivity problems
+            begin
+              Mirror.fetch!(@full_path)
+            rescue => e
+              if e.message.include?('Could not read from remote repository.')
+                raise e
+              else
+                $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
+              end
+            end
+
+            # push to the remote mirror, mark re-enable as success, clear any
+            # re-enable errors, and push a redis event to re-enable mirroring in GitSwarm
+            push_all_refs
+            reenabled = true
+            File.unlink(error_file)
+            update_redis(true, 'PerforceSwarm::PostReenableWorker')
+          rescue => e
+            # we've encountered an error bad enough that we shouldn't re-enable
+            $logger.error("Re-enabling mirror error: #{mirror_url} #{@full_path}:\n#{e.message}")
+            File.write(error_file, e.message)
+            raise e
+          ensure
+            # remove the mirror remote if the re-enable failed
+            repo.mirror_url = nil unless reenabled
+          end
+        end
+      end
+      reenabled
     end
 
     def fetch
@@ -86,9 +143,9 @@ module PerforceSwarm
       begin
         skip_if_pushing = !wait_if_busy && !redis_on_finish
         Mirror.fetch!(@full_path, skip_if_pushing)
-        update_redis(true)  if redis_on_finish
+        update_redis(true, 'PerforceSwarm::PostFetchWorker')  if redis_on_finish
       rescue => ex
-        update_redis(false) if redis_on_finish
+        update_redis(false, 'PerforceSwarm::PostFetchWorker') if redis_on_finish
         raise ex
       end
 
@@ -99,9 +156,9 @@ module PerforceSwarm
       false
     end
 
-    def update_redis(success)
+    def update_redis(success, message_class)
       queue = "#{config.redis_namespace}:queue:default"
-      msg   = JSON.dump('class' => 'PerforceSwarm::PostFetchWorker', 'args' => [@full_path, success])
+      msg   = JSON.dump('class' => message_class, 'args' => [@full_path, success])
       if system(*config.redis_command, 'rpush', queue, msg, err: '/dev/null', out: '/dev/null')
         return true
       else
