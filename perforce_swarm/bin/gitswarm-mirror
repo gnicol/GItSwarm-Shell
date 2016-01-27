@@ -26,6 +26,17 @@ require_relative '../../lib/gitlab_init'
 #
 #    *Note: If selective mirroring is enabled it will be honored; only active branches will be pushed.
 #
+#
+#  /perforce_swarm/bin/gitswarm-mirror reenable_mirroring mirror://default/foo gitlab/gitlab-ci.git
+#
+#    Re-enables mirroring on the specified project with the given mirror URL
+#    (creates the mirror remote, performs a pull from the remote, followed by
+#    a push). Once complete, it posts a #{config.redis_namespace}:queue:post_reenable event.
+#
+#    If an error is encountered, the error message will be put in the file
+#    mirror_reenable.error under the GitSwarm-managed bare repo.
+#    Presently, no additional options are supported.
+#
 require File.join(ROOT_PATH, 'perforce_swarm', 'mirror_shell')
 
 # Return non-zero if command execution was not successful
