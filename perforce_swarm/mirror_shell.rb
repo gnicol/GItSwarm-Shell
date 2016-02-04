@@ -88,7 +88,7 @@ module PerforceSwarm
                 raise e
               else
                 # an ignorable error occurred - clean up the fetch error log
-                File.unlink(fetch_error_file)
+                File.unlink(fetch_error_file) if File.exist?(fetch_error_file)
                 $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
               end
             end
