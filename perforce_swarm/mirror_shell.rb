@@ -68,7 +68,7 @@ module PerforceSwarm
       # will not wait on the file lock, so if a re-enable is already in progress,
       # it will simply finish
       reenabled = false
-      Mirror.with_reenable_lock(@full_path) do |error_file|
+      Mirror.with_reenable_lock(@full_path) do |error_file, fetch_error_file|
         begin
           repo = Repo.new(@full_path)
           return false if repo.mirrored?
@@ -87,6 +87,8 @@ module PerforceSwarm
               if e.message.include?('Could not read from remote repository.')
                 raise e
               else
+                # an ignorable error occurred - clean up the fetch error log
+                File.unlink(fetch_error_file) if File.exist?(fetch_error_file)
                 $logger.error("Re-enabling mirror fetch error: #{mirror_url} #{@full_path}:\n#{e.message}")
               end
             end

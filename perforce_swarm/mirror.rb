@@ -20,6 +20,9 @@ module PerforceSwarm
     # socket due to the requested repo not being mirrored
     NOT_MIRRORED = '__NOT_MIRRORED__'
 
+    # filename for errors encountered during fetch
+    FETCH_ERROR_FILE = 'mirror_fetch.error'
+
     # filename of lock used for re-enabling mirroring
     REENABLE_LOCK_FILE = 'mirror_reenable.lock'
 
@@ -217,7 +220,7 @@ module PerforceSwarm
           # we use a fetch lock to avoid a 'cache stampede' style issue should multiple pullers overlap
           File.open(File.join(repo_path, 'mirror_fetch.lock'), 'w+', 0644) do |fetch_handle|
             begin
-              error_file = File.join(repo_path, 'mirror_fetch.error')
+              error_file = File.join(repo_path, FETCH_ERROR_FILE)
               # Try and take the lock, but don't yet block if it's already taken
               unless fetch_handle.flock(File::LOCK_NB | File::LOCK_EX)
                 # Looks like someone else is already doing a pull
@@ -295,7 +298,7 @@ module PerforceSwarm
       repo = Repo.new(repo_path)
       return false unless repo.mirrored?
 
-      error = File.read(File.join(repo_path, 'mirror_fetch.error'))
+      error = File.read(File.join(repo_path, FETCH_ERROR_FILE))
       "Fetch from mirror: #{repo.mirror_url} failed.\nPlease notify your Administrator.\n#{error}"
     rescue SystemCallError
       return false
@@ -306,7 +309,7 @@ module PerforceSwarm
         begin
           return unless handle.flock(File::LOCK_EX | File::LOCK_NB)
           error_file = File.join(repo_path, REENABLE_ERROR_FILE)
-          yield(error_file) if block_given?
+          yield(error_file, File.join(repo_path, FETCH_ERROR_FILE)) if block_given?
         ensure
           handle.flock(File::LOCK_UN)
           handle.close
