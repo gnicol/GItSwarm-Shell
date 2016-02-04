@@ -49,7 +49,7 @@ module PerforceSwarm
     end
 
     def mirror_url_object
-      GitFusion::URL.new(@mirror_url)
+      GitFusion::URL.new(mirror_url)
     end
   end
 end
