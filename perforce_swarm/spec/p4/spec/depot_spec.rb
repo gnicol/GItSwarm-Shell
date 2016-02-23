@@ -98,5 +98,25 @@ describe PerforceSwarm::P4::Spec::Depot do
         expect(depot_spec.id_from_path(path)).to eq(id)
       end
     end
+
+    describe :fetch do
+      it 'returns nil for an unknown depot id' do
+        expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)).to be_nil
+      end
+
+      context 'with existing depot' do
+        it 'returns a hash with the proper depot name' do
+          output = PerforceSwarm::P4::Spec::Depot.create(@connection, test_depot).last
+          expect(output.match("Depot #{test_depot} saved")).to be_true
+          expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)['Depot']).to eq(test_depot)
+        end
+
+        it 'defauls to a streams depth of 1' do
+          output = PerforceSwarm::P4::Spec::Depot.create(@connection, test_depot, 'Type' => 'stream').last
+          expect(output.match("Depot #{test_depot} saved")).to be_true
+          expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)['numericStreamDepth']).to eq(1)
+        end
+      end
+    end
   end
 end
