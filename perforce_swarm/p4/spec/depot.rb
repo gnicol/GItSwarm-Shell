@@ -32,7 +32,7 @@ module PerforceSwarm
           return nil unless exists?(connection, id)
           depot = connection.run(*%W(depot -o #{id})).last
           if depot['Type'] == 'stream'
-            # Purposfully use merge here to get a hash object
+            # Purposefully use merge here to get a hash object
             # so we can add to it, instead of a depot spec
             depot.merge!('numericStreamDepth' => 1)
             if depot['StreamDepth']
