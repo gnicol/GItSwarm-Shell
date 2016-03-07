@@ -18,6 +18,32 @@ module PerforceSwarm
           return id.is_a?(Array) ? [] : false
         end
 
+        # returns a hash of all depots found, keyed on depot name
+        def self.all(connection)
+          depots = {}
+          connection.run('depots').each do |depot|
+            depots[depot['name']] = depot
+          end
+          depots
+        end
+
+        def self.fetch(connection, id)
+          # Check if the depot exists before running the depot command
+          return nil unless exists?(connection, id)
+          depot = connection.run(*%W(depot -o #{id})).last
+          if depot['Type'] == 'stream'
+            # Purposefully use merge here to get a hash object
+            # so we can add to it, instead of a depot spec
+            depot.merge!('numericStreamDepth' => 1)
+            if depot['StreamDepth']
+              # Determine the stream depth by counting the number of slashes after the depot name
+              depot['numericStreamDepth'] = depot['StreamDepth'].sub(%r{^//#{depot['Name']}}, '').count('/')
+            end
+          end
+
+          depot
+        end
+
         # Create the specified depot. If the depot already exists it will be updated with any modified 'extra' details.
         def self.create(connection, id, extra = {})
           connection.input = connection.run(*%W(depot -o #{id})).last

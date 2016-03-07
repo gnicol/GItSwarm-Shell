@@ -64,6 +64,28 @@ describe PerforceSwarm::P4::Spec::Depot do
     expect(PerforceSwarm::P4::Spec::Depot.exists?(@connection, test_depot)).to be_true
   end
 
+  describe :all do
+    it 'returns an empty list if no depots exist' do
+      @connection.run(%w(depot -d -f depot)).last.inspect
+      depots = PerforceSwarm::P4::Spec::Depot.all(@connection)
+      expect(depots).to be_a(Hash)
+      expect(depots.empty?).to be_true
+    end
+
+    it 'returns a list of depots keyed on name' do
+      PerforceSwarm::P4::Spec::Depot.create(@connection, 'depot1')
+      PerforceSwarm::P4::Spec::Depot.create(@connection, 'depot2', 'Type' => 'remote')
+      PerforceSwarm::P4::Spec::Depot.create(@connection, 'stream', 'Type' => 'stream')
+      depots = PerforceSwarm::P4::Spec::Depot.all(@connection)
+      expect(depots).to be_a(Hash)
+      expect(depots['depot1'].nil?).to be_false
+      expect(depots['depot2'].nil?).to be_false
+      expect(depots['stream'].nil?).to be_false
+      expect(depots['depot3'].nil?).to be_true
+      expect(depots['stream']['type']).to eq('stream')
+    end
+  end
+
   describe :id_from_path do
     it 'extracts the correct depot name/ID from the given path' do
       depot_spec = PerforceSwarm::P4::Spec::Depot
@@ -74,6 +96,27 @@ describe PerforceSwarm::P4::Spec::Depot do
         'invalid/depot/path'             => nil
       }.each do |path, id|
         expect(depot_spec.id_from_path(path)).to eq(id)
+      end
+    end
+
+    describe :fetch do
+      it 'returns nil for an unknown depot id' do
+        expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)).to be_nil
+      end
+
+      context 'with existing depot' do
+        it 'returns a hash with the proper depot name' do
+          output = PerforceSwarm::P4::Spec::Depot.create(@connection, test_depot).last
+          expect(output.match("Depot #{test_depot} saved")).to be_true
+          expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot).is_a?(Hash)).to be_true
+          expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)['Depot']).to eq(test_depot)
+        end
+
+        it 'defaults to a streams depth of 1' do
+          output = PerforceSwarm::P4::Spec::Depot.create(@connection, test_depot, 'Type' => 'stream').last
+          expect(output.match("Depot #{test_depot} saved")).to be_true
+          expect(PerforceSwarm::P4::Spec::Depot.fetch(@connection, test_depot)['numericStreamDepth']).to eq(1)
+        end
       end
     end
   end
