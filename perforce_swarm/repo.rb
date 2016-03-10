@@ -46,7 +46,7 @@ module PerforceSwarm
 
       fail "Failed to query mirror remote for #{@path} its head\n#{output}" unless status.zero?
 
-      output[/^  HEAD branch: (\S*)/, 1]
+      output[/^\s+HEAD branch:\s+(\S+)/, 1]
     end
 
     def mirror_url
