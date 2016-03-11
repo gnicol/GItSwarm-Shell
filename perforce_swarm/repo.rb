@@ -46,7 +46,16 @@ module PerforceSwarm
 
       fail "Failed to query mirror remote for #{@path} its head\n#{output}" unless status.zero?
 
-      output[/^\s+HEAD branch:\s+(\S+)/, 1]
+      head = output[/^\s+HEAD branch:\s+(\S+)/, 1]
+
+      # Ensure HEAD points to a known branch before we return it.
+      # Empty repos will report (unknown) for example as their head
+      if head
+        output, _status = Utils.popen(['git', 'branch', '--list', head], @path)
+        return nil unless output && !output.empty?
+      end
+
+      head
     end
 
     def mirror_url
