@@ -39,6 +39,25 @@ module PerforceSwarm
       url
     end
 
+    def mirror_head
+      config            = PerforceSwarm::GitlabConfig.new.git_fusion.entry_by_url(mirror_url)
+      git_config_params = PerforceSwarm::GitFusion.git_config_params(config)
+      output, status    = Utils.popen(['git', *git_config_params, 'remote', 'show', 'mirror'], @path)
+
+      fail "Failed to query mirror remote for #{@path} its head\n#{output}" unless status.zero?
+
+      head = output[/^\s+HEAD branch:\s+(\S+)/, 1]
+
+      # Ensure HEAD points to a known branch before we return it.
+      # Empty repos will report (unknown) for example as their head
+      if head
+        output, _status = Utils.popen(['git', 'branch', '--list', head], @path)
+        return nil unless output && !output.empty?
+      end
+
+      head
+    end
+
     def mirror_url
       return @mirror_url if @mirror_url
 
