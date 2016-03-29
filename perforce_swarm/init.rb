@@ -12,10 +12,9 @@ module PerforceSwarm
       # run our update hook first, since if any of them fail, the whole operation does;
       # this is the same logic that occurs in "git push --atomic"
       changes.split(/\r\n|\r|\n/).each do |line|
-        old_value, new_value, ref_name = line.strip.split
-
         # run the actual update hook, bailing on the first unsuccessful one (if any)
         $logger.debug('Running PerforceSwarm custom hook update')
+        old_value, new_value, ref_name = line.strip.split
         return false unless update_hook(ref_name, old_value, new_value, repo_path)
       end
 
