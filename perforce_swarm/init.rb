@@ -12,9 +12,7 @@ module PerforceSwarm
       # run our update hook first, since if any of them fail, the whole operation does;
       # this is the same logic that occurs in "git push --atomic"
       changes.split(/\r\n|\r|\n/).each do |line|
-        # parse the line, fixing up ref names for new refs
         old_value, new_value, ref_name = line.strip.split
-        ref_name = (new_value.match(/^0+$/) ? '' : new_value) + ':' + ref_name
 
         # run the actual update hook, bailing on the first unsuccessful one (if any)
         $logger.debug('Running PerforceSwarm custom hook update')
