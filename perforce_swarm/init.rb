@@ -9,8 +9,17 @@ module PerforceSwarm
   # push as the last step in the pre-recieve hook
   module GitlabCustomHookExtension
     def pre_receive(changes, repo_path)
-      $logger.debug 'Running PerforceSwarm custom hook pre_receive'
+      # run our update hook first, since if any of them fail, the whole operation does;
+      # this is the same logic that occurs in "git push --atomic"
+      changes.split(/\r\n|\r|\n/).each do |line|
+        # run the actual update hook, bailing on the first unsuccessful one (if any)
+        $logger.debug('Running PerforceSwarm custom hook update')
+        old_value, new_value, ref_name = line.strip.split
+        return false unless orig_update(ref_name, old_value, new_value, repo_path)
+      end
 
+      # continue running the pre-receive hook
+      $logger.debug 'Running PerforceSwarm custom hook pre_receive'
       return false unless super
 
       # Transform the changes into an array of pushable ref updates
@@ -24,6 +33,12 @@ module PerforceSwarm
       true
     rescue Mirror::Exception
       return false
+    end
+
+    # override the update hook to always be happy, since we've already called the
+    # *actual* update hook in pre-receive
+    def update(_ref_name, _old_value, _new_value, _repo_path)
+      true
     end
 
     def post_receive(changes, repo_path, options = {})
@@ -111,6 +126,7 @@ module PerforceSwarm
 end
 
 class GitlabCustomHook
+  alias_method :orig_update, :update
   prepend PerforceSwarm::GitlabCustomHookExtension
 end
 
