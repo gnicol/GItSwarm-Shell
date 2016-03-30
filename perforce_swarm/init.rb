@@ -15,7 +15,7 @@ module PerforceSwarm
         # run the actual update hook, bailing on the first unsuccessful one (if any)
         $logger.debug('Running PerforceSwarm custom hook update')
         old_value, new_value, ref_name = line.strip.split
-        return false unless update_hook(ref_name, old_value, new_value, repo_path)
+        return false unless orig_update(ref_name, old_value, new_value, repo_path)
       end
 
       # continue running the pre-receive hook
@@ -126,7 +126,7 @@ module PerforceSwarm
 end
 
 class GitlabCustomHook
-  alias_method :update_hook, :update
+  alias_method :orig_update, :update
   prepend PerforceSwarm::GitlabCustomHookExtension
 end
 
